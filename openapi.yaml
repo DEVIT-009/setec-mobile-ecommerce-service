@@ -1,0 +1,1636 @@
+openapi: 3.0.3
+info:
+  title: SETEC eCommerce APIM
+  version: 1.0.0
+  description: REST API documentation for the SETEC eCommerce Customer App (Phase 1 MVP).
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Local Development Server
+  - url: https://staging-api.setec-ecommerce.com/api/v1
+    description: Staging Server
+  - url: https://api.setec-ecommerce.com/api/v1
+    description: Production Server
+
+paths:
+  # ---------------------------------------------------------------------------
+  # AUTH
+  # ---------------------------------------------------------------------------
+  /auth/register/:
+    post:
+      summary: Register customer account
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email, example: "customer@example.com" }
+                password: { type: string, format: password, example: "Password123!" }
+                first_name: { type: string, example: "John" }
+                last_name: { type: string, example: "Doe" }
+                phone_number: { type: string, example: "+85512345678" }
+      responses:
+        201:
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /auth/login/:
+    post:
+      summary: Login and obtain JWT token
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email, example: "customer@example.com" }
+                password: { type: string, format: password, example: "Password123!" }
+      responses:
+        200:
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /auth/logout/:
+    post:
+      summary: Revoke current session
+      tags: [Auth]
+      security: [{ BearerAuth: [] }]
+      responses:
+        204:
+          description: Logged out
+
+  /auth/refresh/:
+    post:
+      summary: Refresh JWT token
+      tags: [Auth]
+      security: [{ BearerAuth: [] }]
+      responses:
+        200:
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /auth/forgot-password/:
+    post:
+      summary: Request password reset link / token
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email, example: "customer@example.com" }
+      responses:
+        200:
+          description: Reset instructions sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /auth/reset-password/:
+    post:
+      summary: Reset password using reset token
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reset_token, new_password]
+              properties:
+                reset_token: { type: string, example: "3fa85f6457174562b3fc2c963f66afa6" }
+                new_password: { type: string, format: password, example: "NewPassword123!" }
+      responses:
+        200:
+          description: Password updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /auth/verify-email/:
+    post:
+      summary: Mark current user's email as verified
+      tags: [Auth]
+      security: [{ BearerAuth: [] }]
+      responses:
+        200:
+          description: Email verified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /auth/verify-phone/:
+    post:
+      summary: Mark current user's phone as verified
+      tags: [Auth]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                phone_number: { type: string, example: "+85512345678" }
+      responses:
+        200:
+          description: Phone verified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /auth/me/:
+    get:
+      summary: Current user basic auth info
+      tags: [Auth]
+      security: [{ BearerAuth: [] }]
+      responses:
+        200:
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  # ---------------------------------------------------------------------------
+  # USERS & PROFILE
+  # ---------------------------------------------------------------------------
+  /users/me/:
+    get:
+      summary: Get account details
+      tags: [Users]
+      security: [{ BearerAuth: [] }]
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+    patch:
+      summary: Update account details
+      tags: [Users]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                first_name: { type: string }
+                last_name: { type: string }
+                avatar_url: { type: string, format: uri }
+                phone_number: { type: string }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /users/me/profile/:
+    get:
+      summary: Get extended profile
+      tags: [Users]
+      security: [{ BearerAuth: [] }]
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+    patch:
+      summary: Update extended profile
+      tags: [Users]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                date_of_birth: { type: string, format: date, example: "1995-06-15" }
+                gender: { type: string, enum: [male, female, other, prefer_not_to_say] }
+                preferred_language: { type: string, example: "en" }
+                marketing_opt_in: { type: boolean, example: true }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /users/me/security-settings/:
+    get:
+      summary: Get security preferences
+      tags: [Users]
+      security: [{ BearerAuth: [] }]
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+    patch:
+      summary: Update security preference flags
+      tags: [Users]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                two_factor_enabled: { type: boolean }
+                biometric_enabled: { type: boolean }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /users/me/sessions/:
+    get:
+      summary: List user sessions
+      tags: [Users]
+      security: [{ BearerAuth: [] }]
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /users/me/sessions/{session_id}/revoke/:
+    post:
+      summary: Revoke a specific session
+      tags: [Users]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: session_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        204:
+          description: Session revoked
+
+  /users/me/reviews/:
+    get:
+      summary: List reviews created by current user
+      tags: [Users]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: page_size
+          schema: { type: integer, default: 20 }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListEnvelope'
+
+  /users/me/legal-acceptances/:
+    get:
+      summary: List legal acceptances for current user
+      tags: [Users]
+      security: [{ BearerAuth: [] }]
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  # ---------------------------------------------------------------------------
+  # ADDRESSES
+  # ---------------------------------------------------------------------------
+  /addresses/:
+    get:
+      summary: List user addresses
+      tags: [Addresses]
+      security: [{ BearerAuth: [] }]
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+    post:
+      summary: Create new address
+      tags: [Addresses]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [recipient_name, phone_number, address_line_1, city, country_code]
+              properties:
+                label: { type: string, example: "Home" }
+                recipient_name: { type: string, example: "John Doe" }
+                phone_number: { type: string, example: "+85512345678" }
+                address_line_1: { type: string, example: "Russian Blvd #123" }
+                address_line_2: { type: string, example: "Apt 4B" }
+                city: { type: string, example: "Phnom Penh" }
+                state: { type: string, example: "Phnom Penh" }
+                postal_code: { type: string, example: "12000" }
+                country_code: { type: string, example: "KH" }
+                latitude: { type: number, format: float, example: 11.5564 }
+                longitude: { type: number, format: float, example: 104.9282 }
+                is_default: { type: boolean, example: true }
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /addresses/{address_id}/:
+    get:
+      summary: Get address detail
+      tags: [Addresses]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: address_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+    patch:
+      summary: Update address
+      tags: [Addresses]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: address_id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                label: { type: string }
+                recipient_name: { type: string }
+                phone_number: { type: string }
+                address_line_1: { type: string }
+                city: { type: string }
+                country_code: { type: string }
+                is_default: { type: boolean }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+    delete:
+      summary: Soft-delete address
+      tags: [Addresses]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: address_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        204:
+          description: Address deleted
+
+  /addresses/{address_id}/default/:
+    post:
+      summary: Set address as default
+      tags: [Addresses]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: address_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  # ---------------------------------------------------------------------------
+  # HOME & CATALOG
+  # ---------------------------------------------------------------------------
+  /home/:
+    get:
+      summary: Aggregated home screen content
+      tags: [Catalog]
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /categories/:
+    get:
+      summary: List active categories
+      tags: [Catalog]
+      parameters:
+        - in: query
+          name: parent_id
+          schema: { type: string, format: uuid }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /categories/tree/:
+    get:
+      summary: Get category hierarchy tree
+      tags: [Catalog]
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /categories/{slug}/:
+    get:
+      summary: Get category detail by slug
+      tags: [Catalog]
+      parameters:
+        - in: path
+          name: slug
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /stores/:
+    get:
+      summary: List active stores
+      tags: [Stores]
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: page_size
+          schema: { type: integer, default: 20 }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListEnvelope'
+
+  /stores/{slug}/:
+    get:
+      summary: Get store detail
+      tags: [Stores]
+      parameters:
+        - in: path
+          name: slug
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /stores/{slug}/products/:
+    get:
+      summary: List products for a specific store
+      tags: [Stores]
+      parameters:
+        - in: path
+          name: slug
+          required: true
+          schema: { type: string }
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: page_size
+          schema: { type: integer, default: 20 }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListEnvelope'
+
+  /tags/:
+    get:
+      summary: List product tags
+      tags: [Catalog]
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: page_size
+          schema: { type: integer, default: 20 }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListEnvelope'
+
+  # ---------------------------------------------------------------------------
+  # PRODUCTS
+  # ---------------------------------------------------------------------------
+  /products/:
+    get:
+      summary: List active products with filters and sorting
+      tags: [Products]
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string }
+        - in: query
+          name: category_id
+          schema: { type: string, format: uuid }
+        - in: query
+          name: store_id
+          schema: { type: string, format: uuid }
+        - in: query
+          name: tag
+          schema: { type: string }
+        - in: query
+          name: min_price
+          schema: { type: number }
+        - in: query
+          name: max_price
+          schema: { type: number }
+        - in: query
+          name: rating_min
+          schema: { type: number }
+        - in: query
+          name: sort
+          schema: { type: string, enum: [newest, price_asc, price_desc, rating, sold], default: newest }
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: page_size
+          schema: { type: integer, default: 20 }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListEnvelope'
+
+  /products/{product_id}/:
+    get:
+      summary: Get product detail
+      tags: [Products]
+      parameters:
+        - in: path
+          name: product_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /products/slug/{store_slug}/{product_slug}/:
+    get:
+      summary: Get product by store slug and product slug
+      tags: [Products]
+      parameters:
+        - in: path
+          name: store_slug
+          required: true
+          schema: { type: string }
+        - in: path
+          name: product_slug
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /products/{product_id}/images/:
+    get:
+      summary: Get product images
+      tags: [Products]
+      parameters:
+        - in: path
+          name: product_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /products/{product_id}/variants/:
+    get:
+      summary: Get product variants & option values
+      tags: [Products]
+      parameters:
+        - in: path
+          name: product_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /products/{product_id}/reviews/:
+    get:
+      summary: List published reviews for product
+      tags: [Products, Reviews]
+      parameters:
+        - in: path
+          name: product_id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: page_size
+          schema: { type: integer, default: 20 }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListEnvelope'
+    post:
+      summary: Create review for product
+      tags: [Products, Reviews]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: product_id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rating]
+              properties:
+                rating: { type: integer, minimum: 1, maximum: 5, example: 5 }
+                title: { type: string, example: "Excellent Quality" }
+                body: { type: string, example: "Loved the product, fits perfectly." }
+                order_item_id: { type: string, format: uuid }
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /products/{product_id}/favorite/:
+    get:
+      summary: Get current user's favorite state for product
+      tags: [Products, Favorites]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: product_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  # ---------------------------------------------------------------------------
+  # CART
+  # ---------------------------------------------------------------------------
+  /cart/:
+    get:
+      summary: Get current active cart with calculated totals
+      tags: [Cart]
+      security: [{ BearerAuth: [] }]
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /cart/items/:
+    post:
+      summary: Add product / variant to cart
+      tags: [Cart]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [product_id]
+              properties:
+                product_id: { type: string, format: uuid }
+                product_variant_id: { type: string, format: uuid }
+                quantity: { type: integer, minimum: 1, default: 1 }
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /cart/items/{cart_item_id}/:
+    patch:
+      summary: Update cart item quantity or selection state
+      tags: [Cart]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: cart_item_id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                quantity: { type: integer, minimum: 1 }
+                is_selected: { type: boolean }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+    delete:
+      summary: Remove item from cart
+      tags: [Cart]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: cart_item_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        204:
+          description: Item removed
+
+  /cart/select-all/:
+    post:
+      summary: Select or unselect all cart items
+      tags: [Cart]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                selected: { type: boolean, default: true }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /cart/checkout-preview/:
+    post:
+      summary: Preview totals using selected cart items
+      tags: [Cart]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                shipping_address_id: { type: string, format: uuid }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  # ---------------------------------------------------------------------------
+  # ORDERS
+  # ---------------------------------------------------------------------------
+  /orders/:
+    get:
+      summary: List current user's orders
+      tags: [Orders]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: page_size
+          schema: { type: integer, default: 20 }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListEnvelope'
+    post:
+      summary: Place order from selected cart items (creates 1 order per store)
+      tags: [Orders]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cart_id, shipping_address_id, idempotency_key]
+              properties:
+                cart_id: { type: string, format: uuid }
+                shipping_address_id: { type: string, format: uuid }
+                idempotency_key: { type: string, example: "unique-uuid-or-key" }
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /orders/{order_id}/:
+    get:
+      summary: Get order detail with items, status timeline, and shipments
+      tags: [Orders]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: order_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /orders/{order_id}/cancel/:
+    post:
+      summary: Cancel a pending order
+      tags: [Orders]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: order_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /orders/{order_id}/status-history/:
+    get:
+      summary: Get status transition timeline for order
+      tags: [Orders]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: order_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /orders/{order_id}/shipments/:
+    get:
+      summary: List shipments associated with order
+      tags: [Orders, Shipments]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: order_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  # ---------------------------------------------------------------------------
+  # SHIPMENTS
+  # ---------------------------------------------------------------------------
+  /shipments/{shipment_id}/:
+    get:
+      summary: Get shipment detail and current status
+      tags: [Shipments]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: shipment_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /shipments/{shipment_id}/events/:
+    get:
+      summary: Get tracking event checkpoints for shipment
+      tags: [Shipments]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: shipment_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  # ---------------------------------------------------------------------------
+  # FAVORITES & SEARCH HISTORY
+  # ---------------------------------------------------------------------------
+  /favorites/:
+    get:
+      summary: List user favorite products
+      tags: [Favorites]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: page_size
+          schema: { type: integer, default: 20 }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListEnvelope'
+    post:
+      summary: Add product to favorites
+      tags: [Favorites]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [product_id]
+              properties:
+                product_id: { type: string, format: uuid }
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /favorites/{product_id}/:
+    delete:
+      summary: Remove product from favorites
+      tags: [Favorites]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: product_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        204:
+          description: Removed from favorites
+
+  /search-history/:
+    get:
+      summary: List recent search queries
+      tags: [Search]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: page_size
+          schema: { type: integer, default: 20 }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListEnvelope'
+    post:
+      summary: Record search query
+      tags: [Search]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query]
+              properties:
+                query: { type: string, example: "Wireless headphones" }
+                filters_json: { type: object }
+                result_count: { type: integer, example: 12 }
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+    delete:
+      summary: Clear all search history
+      tags: [Search]
+      security: [{ BearerAuth: [] }]
+      responses:
+        204:
+          description: History cleared
+
+  /search-history/{search_id}/:
+    delete:
+      summary: Delete single search history item
+      tags: [Search]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: search_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        204:
+          description: Item deleted
+
+  # ---------------------------------------------------------------------------
+  # CONVERSATIONS & MESSAGING
+  # ---------------------------------------------------------------------------
+  /conversations/:
+    get:
+      summary: List customer-to-admin conversations
+      tags: [Conversations]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: page_size
+          schema: { type: integer, default: 20 }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListEnvelope'
+    post:
+      summary: Start customer conversation
+      tags: [Conversations]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                store_id: { type: string, format: uuid }
+                order_id: { type: string, format: uuid }
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /conversations/{conversation_id}/:
+    get:
+      summary: Get conversation detail
+      tags: [Conversations]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: conversation_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+    patch:
+      summary: Close / update conversation
+      tags: [Conversations]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: conversation_id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status: { type: string, enum: [open, closed, archived] }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /conversations/{conversation_id}/messages/:
+    get:
+      summary: List messages in conversation
+      tags: [Conversations]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: conversation_id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: page_size
+          schema: { type: integer, default: 20 }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListEnvelope'
+    post:
+      summary: Send text or attachment message
+      tags: [Conversations]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: conversation_id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message_type: { type: string, enum: [text, image, system], default: text }
+                body: { type: string, example: "Hi, I have a question about my order." }
+                attachment_url: { type: string, format: uri }
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /messages/{message_id}/read/:
+    post:
+      summary: Mark message as read
+      tags: [Conversations]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: message_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  # ---------------------------------------------------------------------------
+  # NOTIFICATIONS
+  # ---------------------------------------------------------------------------
+  /notifications/:
+    get:
+      summary: List in-app notifications
+      tags: [Notifications]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: page_size
+          schema: { type: integer, default: 20 }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListEnvelope'
+
+  /notifications/unread-count/:
+    get:
+      summary: Get total count of unread notifications
+      tags: [Notifications]
+      security: [{ BearerAuth: [] }]
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /notifications/read-all/:
+    post:
+      summary: Mark all user notifications as read
+      tags: [Notifications]
+      security: [{ BearerAuth: [] }]
+      responses:
+        204:
+          description: All marked read
+
+  /notifications/{notification_id}/:
+    delete:
+      summary: Soft-delete single notification
+      tags: [Notifications]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: notification_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        204:
+          description: Notification deleted
+
+  /notifications/{notification_id}/read/:
+    post:
+      summary: Mark single notification as read
+      tags: [Notifications]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: notification_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  # ---------------------------------------------------------------------------
+  # SUPPORT TICKETS
+  # ---------------------------------------------------------------------------
+  /support/tickets/:
+    get:
+      summary: List user support tickets
+      tags: [Support]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: page_size
+          schema: { type: integer, default: 20 }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListEnvelope'
+    post:
+      summary: Create support ticket
+      tags: [Support]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [subject]
+              properties:
+                subject: { type: string, example: "Delivery delay inquiry" }
+                category: { type: string, enum: [order, payment, delivery, account, other], default: other }
+                priority: { type: string, enum: [low, normal, high, urgent], default: normal }
+                order_id: { type: string, format: uuid }
+                message: { type: string, example: "My package has not arrived yet." }
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /support/tickets/{ticket_id}/:
+    get:
+      summary: Get support ticket detail
+      tags: [Support]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: ticket_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+    patch:
+      summary: Update ticket status/priority
+      tags: [Support]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: ticket_id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status: { type: string, enum: [open, in_progress, resolved, closed] }
+                priority: { type: string, enum: [low, normal, high, urgent] }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /support/tickets/{ticket_id}/messages/:
+    get:
+      summary: List messages for support ticket
+      tags: [Support]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: ticket_id
+          required: true
+          schema: { type: string, format: uuid }
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: page_size
+          schema: { type: integer, default: 20 }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListEnvelope'
+    post:
+      summary: Add response message to support ticket
+      tags: [Support]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: ticket_id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body: { type: string, example: "Thank you for the update." }
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  # ---------------------------------------------------------------------------
+  # LEGAL DOCUMENTS
+  # ---------------------------------------------------------------------------
+  /legal-documents/:
+    get:
+      summary: List published legal documents
+      tags: [Legal]
+      parameters:
+        - in: query
+          name: type
+          schema: { type: string, enum: [terms, privacy, refund_policy, shipping_policy] }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /legal-documents/{type}/latest/:
+    get:
+      summary: Get latest published document by type
+      tags: [Legal]
+      parameters:
+        - in: path
+          name: type
+          required: true
+          schema: { type: string, enum: [terms, privacy, refund_policy, shipping_policy] }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /legal-documents/{legal_document_id}/accept/:
+    post:
+      summary: Record user acceptance of legal document
+      tags: [Legal]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: legal_document_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  # ---------------------------------------------------------------------------
+  # UPLOADS (CLOUDINARY)
+  # ---------------------------------------------------------------------------
+  /uploads/cloudinary-signature/:
+    post:
+      summary: Generate signature payload for direct frontend Cloudinary upload
+      tags: [Uploads]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                folder: { type: string, default: "uploads", example: "products" }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+  /uploads/confirm/:
+    post:
+      summary: Confirm uploaded Cloudinary asset and record metadata
+      tags: [Uploads]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [public_id, url]
+              properties:
+                public_id: { type: string, example: "products/sample_image_123" }
+                url: { type: string, format: uri, example: "https://res.cloudinary.com/demo/image/upload/sample.jpg" }
+                secure_url: { type: string, format: uri, example: "https://res.cloudinary.com/demo/image/upload/sample.jpg" }
+                mime_type: { type: string, example: "image/jpeg" }
+                usage_type: { type: string, example: "product_image" }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+
+# ---------------------------------------------------------------------------
+# COMPONENTS & SCHEMAS
+# ---------------------------------------------------------------------------
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    SuccessEnvelope:
+      type: object
+      properties:
+        data:
+          type: object
+          description: Response payload
+        meta:
+          type: object
+          properties:
+            request_id: { type: string, nullable: true }
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiError'
+
+    ListEnvelope:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+        meta:
+          type: object
+          properties:
+            page: { type: integer, example: 1 }
+            page_size: { type: integer, example: 20 }
+            total: { type: integer, example: 50 }
+            has_next: { type: boolean, example: true }
+            request_id: { type: string, nullable: true }
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiError'
+
+    ApiError:
+      type: object
+      properties:
+        code: { type: string, example: "VALIDATION_ERROR" }
+        message: { type: string, example: "Invalid input provided" }
+        field: { type: string, nullable: true, example: "email" }
