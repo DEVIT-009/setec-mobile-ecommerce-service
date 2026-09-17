@@ -735,7 +735,7 @@ Content-Type: application/json
 
 ### 7.2 Home Feed
 
-#### GET `/api/v1/home/`
+#### GET `/api/v1/public/home/`
 **Purpose:** Retrieve the customer home screen feed containing top categories, featured stores, and recommended products.  
 **Authentication:** ❌ None (Public) *(🔓 Optional Bearer token for user personalization & favorite flags)*  
 **Allowed Roles:** 🌐 Public / Authenticated Customer  
@@ -1079,30 +1079,38 @@ Authorization: Bearer <access_token>
 | `page` | integer | No | `1` | Page number |
 | `page_size` | integer | No | `20` | Items per page |
 
-**Success Response (`200 OK` - `ListEnvelope`):**
+**Success Response (`200 OK` - `SuccessEnvelope`):**
 ```json
 {
-  "data": [
-    {
-      "id": "c928420c-7b0a-41e9-a352-fb59f237bf30",
-      "name": "Kutuku Oversized Hoodie",
-      "slug": "kutuku-oversized-hoodie",
-      "base_price": "45.00",
-      "compare_at_price": "60.00",
-      "currency": "USD",
-      "primary_image_url": "https://res.cloudinary.com/demo/image/upload/hoodie_main.jpg",
-      "rating_average": 4.8,
-      "rating_count": 42,
-      "sold_count": 310,
-      "status": "active",
-      "is_favorite": false
-    }
-  ],
+  "data": {
+    "id": "7fa6b514-41d9-4824-8b63-125be7d4e5f2",
+    "name": "Kutuku Official Store",
+    "slug": "kutuku-official",
+    "owner_id": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+    "description": "Official flagship store.",
+    "logo_url": "https://res.cloudinary.com/demo/image/upload/kutuku_logo.png",
+    "banner_url": "https://res.cloudinary.com/demo/image/upload/kutuku_banner.png",
+    "status": "active",
+    "rating_average": 4.9,
+    "rating_count": 120,
+    "created_at": "2026-08-01T00:00:00Z",
+    "product": [
+      {
+        "id": "c928420c-7b0a-41e9-a352-fb59f237bf30",
+        "name": "Kutuku Oversized Hoodie",
+        "slug": "kutuku-oversized-hoodie",
+        "base_price": "45.00",
+        "currency": "USD",
+        "rating_average": 4.8,
+        "rating_count": 42,
+        "sold_count": 310,
+        "compare_at_price": "60.00",
+        "primary_image_url": "https://res.cloudinary.com/demo/image/upload/hoodie_main.jpg",
+        "is_favorite": false
+      }
+    ]
+  },
   "meta": {
-    "page": 1,
-    "page_size": 20,
-    "total": 1,
-    "has_next": false,
     "request_id": null
   },
   "errors": []
@@ -1128,30 +1136,38 @@ Authorization: Bearer <access_token>
 | `page` | integer | No | `1` | Page number |
 | `page_size` | integer | No | `20` | Items per page |
 
-**Success Response (`200 OK` - `ListEnvelope`):**
+**Success Response (`200 OK` - `SuccessEnvelope`):**
 ```json
 {
-  "data": [
-    {
-      "id": "c928420c-7b0a-41e9-a352-fb59f237bf30",
-      "name": "Kutuku Oversized Hoodie",
-      "slug": "kutuku-oversized-hoodie",
-      "base_price": "45.00",
-      "compare_at_price": "60.00",
-      "currency": "USD",
-      "primary_image_url": "https://res.cloudinary.com/demo/image/upload/hoodie_main.jpg",
-      "rating_average": 4.8,
-      "rating_count": 42,
-      "sold_count": 310,
-      "status": "active",
-      "is_favorite": false
-    }
-  ],
+  "data": {
+    "id": "7fa6b514-41d9-4824-8b63-125be7d4e5f2",
+    "name": "Kutuku Official Store",
+    "slug": "kutuku-official",
+    "owner_id": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+    "description": "Official flagship store.",
+    "logo_url": "https://res.cloudinary.com/demo/image/upload/kutuku_logo.png",
+    "banner_url": "https://res.cloudinary.com/demo/image/upload/kutuku_banner.png",
+    "status": "active",
+    "rating_average": 4.9,
+    "rating_count": 120,
+    "created_at": "2026-08-01T00:00:00Z",
+    "product": [
+      {
+        "id": "c928420c-7b0a-41e9-a352-fb59f237bf30",
+        "name": "Kutuku Oversized Hoodie",
+        "slug": "kutuku-oversized-hoodie",
+        "base_price": "45.00",
+        "currency": "USD",
+        "rating_average": 4.8,
+        "rating_count": 42,
+        "sold_count": 310,
+        "compare_at_price": "60.00",
+        "primary_image_url": "https://res.cloudinary.com/demo/image/upload/hoodie_main.jpg",
+        "is_favorite": false
+      }
+    ]
+  },
   "meta": {
-    "page": 1,
-    "page_size": 20,
-    "total": 1,
-    "has_next": false,
     "request_id": null
   },
   "errors": []

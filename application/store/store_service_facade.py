@@ -52,29 +52,33 @@ class StoreServiceFacade(StoreServiceInterface):
         store = self._find_admin(identifier)
         return StoreControllerMapper.to_response(store)
 
-    def list_products(self, store_id: str, page: int = 1, page_size: int = 20) -> Dict[str, Any]:
+    def list_products(self, store_id: str, page: int = 1, page_size: int = 20, user_id: Optional[str] = None) -> Dict[str, Any]:
         store = self.store_repo.get_by_id(store_id)
         if not store:
             store = self.store_repo.get_by_slug(store_id)
         if not store:
             raise StoreException.not_found()
 
-        products, total = self.product_repo.list_active(filters={'store_id': store.id}, page=page, page_size=page_size)
-        return {
-            "items": ProductControllerMapper.to_card_list_response(products),
-            "total": total,
-        }
+        products, _ = self.product_repo.list_active(
+            filters={'store_id': store.id},
+            page=page,
+            page_size=page_size,
+            user_id=user_id,
+        )
+        return StoreControllerMapper.to_response_with_products(store, products)
 
-    def list_products_by_slug(self, slug: str, page: int = 1, page_size: int = 20) -> Dict[str, Any]:
+    def list_products_by_slug(self, slug: str, page: int = 1, page_size: int = 20, user_id: Optional[str] = None) -> Dict[str, Any]:
         store = self.store_repo.get_by_slug(slug)
         if not store:
             raise StoreException.not_found()
 
-        products, total = self.product_repo.list_active(filters={'store_id': store.id}, page=page, page_size=page_size)
-        return {
-            "items": ProductControllerMapper.to_card_list_response(products),
-            "total": total,
-        }
+        products, _ = self.product_repo.list_active(
+            filters={'store_id': store.id},
+            page=page,
+            page_size=page_size,
+            user_id=user_id,
+        )
+        return StoreControllerMapper.to_response_with_products(store, products)
 
     def create(self, data: Dict[str, Any], actor_id: Optional[str] = None) -> Dict[str, Any]:
         slug = data.get('slug')

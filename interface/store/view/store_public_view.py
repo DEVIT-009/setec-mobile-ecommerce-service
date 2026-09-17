@@ -37,19 +37,29 @@ class StorePublicView(viewsets.ViewSet):
         result = self.store_service.get_by_slug(slug)
         return ResponseHandler.api_success(result)
 
-    @metadata_handler(required_user_id=False)
+    @metadata_handler(required_user_id=False, optional_user_id=True)
     def products(self, request: Request, store_id=None, *, metadata: Metadata):
         if store_id is None:
             raise StoreException.not_found()
         paging = ApiPaging.from_request(request)
-        result = self.store_service.list_products(str(store_id), page=paging['page'], page_size=paging['page_size'])
-        return ResponseHandler.api_list(result['items'], paging['page'], paging['page_size'], result['total'])
+        result = self.store_service.list_products(
+            str(store_id),
+            page=paging['page'],
+            page_size=paging['page_size'],
+            user_id=metadata.user_id,
+        )
+        return ResponseHandler.api_success(result)
 
-    @metadata_handler(required_user_id=False)
+    @metadata_handler(required_user_id=False, optional_user_id=True)
     def products_by_slug(self, request: Request, *, metadata: Metadata):
         slug = request.query_params.get('slug')
         if not slug:
             raise StoreException.not_found("Slug query parameter is required")
         paging = ApiPaging.from_request(request)
-        result = self.store_service.list_products_by_slug(slug, page=paging['page'], page_size=paging['page_size'])
-        return ResponseHandler.api_list(result['items'], paging['page'], paging['page_size'], result['total'])
+        result = self.store_service.list_products_by_slug(
+            slug,
+            page=paging['page'],
+            page_size=paging['page_size'],
+            user_id=metadata.user_id,
+        )
+        return ResponseHandler.api_success(result)

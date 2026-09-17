@@ -70,8 +70,9 @@ WSGI_APPLICATION = '_config.wsgi.application'
 DATABASES = {
     "default": env.db("DATABASE_URL")
 }
-# PostgreSQL-specific: strip any lingering MySQL-only OPTIONS
+
 DATABASES["default"].pop("OPTIONS", None)
+
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [

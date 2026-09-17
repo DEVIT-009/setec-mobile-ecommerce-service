@@ -6,6 +6,6 @@ from interface.legal_document.view.legal_document_view import (
 
 # Public legal document routes (no authentication required)
 urlpatterns = [
-    path('', LegalDocumentListView.as_view(), name='legal-document-list'),
-    path('<str:type>/latest/', LegalDocumentLatestView.as_view(), name='legal-document-latest'),
+    path('legal-documents/', LegalDocumentListView.as_view(), name='legal-document-list'),
+    path('legal-documents/<str:type>/latest/', LegalDocumentLatestView.as_view(), name='legal-document-latest'),
 ]

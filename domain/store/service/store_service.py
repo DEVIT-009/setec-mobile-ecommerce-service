@@ -25,11 +25,11 @@ class StoreServiceInterface(ABC):
         pass
 
     @abstractmethod
-    def list_products(self, store_id: str, page: int = 1, page_size: int = 20) -> Dict[str, Any]:
+    def list_products(self, store_id: str, page: int = 1, page_size: int = 20, user_id: Optional[str] = None) -> Dict[str, Any]:
         pass
 
     @abstractmethod
-    def list_products_by_slug(self, slug: str, page: int = 1, page_size: int = 20) -> Dict[str, Any]:
+    def list_products_by_slug(self, slug: str, page: int = 1, page_size: int = 20, user_id: Optional[str] = None) -> Dict[str, Any]:
         pass
 
     @abstractmethod
