@@ -21,7 +21,10 @@ environ.Env.read_env(os.path.join(BASE_DIR, ".env"))
 # SECURITY
 SECRET_KEY = env("SECRET_KEY")  # from .env
 DEBUG = env("DEBUG")
-ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=[])
+ALLOWED_HOSTS = env.list(
+    "ALLOWED_HOSTS",
+    default=["localhost", "127.0.0.1", "testserver"]
+)
 
 # Application definition
 INSTALLED_APPS = [
