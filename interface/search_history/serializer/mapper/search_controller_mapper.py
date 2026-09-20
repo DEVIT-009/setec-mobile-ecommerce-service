@@ -7,6 +7,14 @@ from interface.search_history.serializer.response.search_history_response import
 class SearchControllerMapper:
 
     @staticmethod
+    def from_request(validated_data: Dict[str, Any]) -> SearchHistory:
+        return SearchHistory(
+            query=validated_data['query'],
+            filters_json=validated_data.get('filters_json'),
+            result_count=validated_data.get('result_count'),
+        )
+
+    @staticmethod
     def to_response(search: SearchHistory) -> Dict[str, Any]:
         response_dto = SearchHistoryResponse(
             id=str(search.id) if search.id else None,
@@ -20,4 +28,3 @@ class SearchControllerMapper:
     @staticmethod
     def to_list_response(searches: List[SearchHistory]) -> List[Dict[str, Any]]:
         return [SearchControllerMapper.to_response(s) for s in searches]
-

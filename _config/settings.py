@@ -21,10 +21,8 @@ environ.Env.read_env(os.path.join(BASE_DIR, ".env"))
 # SECURITY
 SECRET_KEY = env("SECRET_KEY")  # from .env
 DEBUG = env("DEBUG")
-ALLOWED_HOSTS = env.list(
-    "ALLOWED_HOSTS",
-    default=["localhost", "127.0.0.1", "testserver"]
-)
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS")
+FRONTEND_URLS = env.list("FRONTEND_URL")
 
 # Application definition
 INSTALLED_APPS = [
@@ -74,9 +72,6 @@ DATABASES = {
     "default": env.db("DATABASE_URL")
 }
 
-DATABASES["default"].pop("OPTIONS", None)
-
-
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',},
@@ -116,11 +111,10 @@ REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "shared.exceptionalhandler.exceptional_handler.custom_exception_handler",
 }
 
-# CORS settings
-CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[
-    "http://localhost:3000",
-    "http://localhost:8080",
-])
+# Allowed Front-end
+CORS_ALLOWED_ORIGINS = FRONTEND_URLS
+CSRF_TRUSTED_ORIGINS = FRONTEND_URLS
+
 CORS_ALLOW_CREDENTIALS = True
 
 # Cloudinary

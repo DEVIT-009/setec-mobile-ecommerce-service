@@ -9,6 +9,3 @@ class SearchHistoryResponse:
     filters_json: Optional[Any] = None
     result_count: Optional[int] = None
     created_at: Optional[str] = None
-
-    def to_dict(self):
-        return self.__dict__

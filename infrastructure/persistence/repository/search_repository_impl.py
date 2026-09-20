@@ -7,10 +7,22 @@ from infrastructure.persistence.models.search_model import SearchHistory as Sear
 
 class SearchRepositoryInterfaceImpl(SearchRepositoryInterface):
 
-    def save(self, record: SearchHistory) -> SearchHistory:
-        db_instance = SearchHistoryModel.objects.filter(pk=record.id).first() if record.id else None
-        db_instance = SearchPersistenceMapper.to_model(record, db_instance)
-        db_instance.save()
+    def upsert_by_query(self, record: SearchHistory) -> SearchHistory:
+        """
+        Find an existing record for (user_id, query).
+        - Exists  → update filters_json and result_count, then save.
+        - Missing → create a new record.
+        Django's update_or_create handles both atomically.
+        """
+        defaults = {
+            'filters_json': record.filters_json,
+            'result_count': record.result_count,
+        }
+        db_instance, _ = SearchHistoryModel.objects.update_or_create(
+            user_id=record.user_id,
+            query=record.query,
+            defaults=defaults,
+        )
         return SearchPersistenceMapper.from_entity(db_instance)
 
     def list_by_user(self, user_id: str, page: int, page_size: int) -> Tuple[List[SearchHistory], int]:
