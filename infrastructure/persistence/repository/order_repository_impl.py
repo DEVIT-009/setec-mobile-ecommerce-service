@@ -1,4 +1,3 @@
-import uuid
 from decimal import Decimal
 from collections import defaultdict
 from typing import Optional, List, Tuple, Dict, Any
@@ -23,10 +22,6 @@ class OrderRepositoryInterfaceImpl(OrderRepositoryInterface):
 
     @transaction.atomic
     def place_orders(self, cart_id: str, shipping_address_id: str, user_id: str, idempotency_key: Optional[str] = None) -> List[Order]:
-        if idempotency_key:
-            if OrderModel.objects.filter(order_number__startswith=f"IDEMP-{idempotency_key[:20]}").exists():
-                raise OrderException.duplicate_order()
-
         cart = CartModel.objects.filter(id=cart_id, user_id=user_id, status='active', deleted_at__isnull=True).first()
         if not cart:
             raise OrderException.empty_cart()
@@ -45,13 +40,9 @@ class OrderRepositoryInterfaceImpl(OrderRepositoryInterface):
         created_orders = []
         for store_id, items in store_groups.items():
             subtotal = sum(i.unit_price_snapshot * i.quantity for i in items)
-            order_num = f"IDEMP-{idempotency_key[:20]}-{str(store_id)[:8]}" if idempotency_key else f"ORD-{uuid.uuid4().hex[:12].upper()}"
 
-            if OrderModel.objects.filter(order_number=order_num).exists():
-                order_num = f"ORD-{uuid.uuid4().hex[:12].upper()}"
-
+            # ID is auto-generated via model.save() using generate_order_id()
             order_model = OrderModel.objects.create(
-                order_number=order_num,
                 user_id=user_id,
                 store_id=store_id,
                 shipping_address_id=shipping_address_id,

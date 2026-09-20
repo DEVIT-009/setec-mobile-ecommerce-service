@@ -20,7 +20,7 @@ from .order_status_history_model import OrderStatusHistory
 from .shipment_model import Shipment
 from .shipment_event_model import ShipmentEvent
 from .favorite_model import Favorite
-from .review_model import ProductReview
+from .review_model import Review as ProductReview
 from .search_model import SearchHistory
 from .conversation_model import Conversation
 from .message_model import Message
@@ -29,6 +29,7 @@ from .support_ticket_model import SupportTicket
 from .support_ticket_message_model import SupportTicketMessage
 from .legal_document_model import LegalDocument
 from .legal_acceptance_model import LegalAcceptance
+from .id_sequence_model import IdSequence
 
 __all__ = [
     'User',
@@ -63,4 +64,5 @@ __all__ = [
     'SupportTicketMessage',
     'LegalDocument',
     'LegalAcceptance',
+    'IdSequence',
 ]

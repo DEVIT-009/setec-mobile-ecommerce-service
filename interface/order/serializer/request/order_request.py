@@ -7,8 +7,8 @@ ORDER_STATUS_CHOICES = [
 
 
 class PlaceOrderRequest(serializers.Serializer):
-    cart_id = serializers.UUIDField()
-    shipping_address_id = serializers.UUIDField()
+    cart_id = serializers.CharField()
+    shipping_address_id = serializers.CharField()
     idempotency_key = serializers.CharField(max_length=128)
 
 

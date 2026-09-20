@@ -20,7 +20,7 @@ urlpatterns = [
     # PUT    /admin/stores/<uuid>/         -> full update
     # PATCH  /admin/stores/<uuid>/         -> partial update
     # DELETE /admin/stores/<uuid>/         -> soft delete
-    path('admin/stores/<uuid:store_id>/', StoreAdminView.as_view({
+    path('admin/stores/<str:store_id>/', StoreAdminView.as_view({
         'get': 'retrieve',
         'put': 'update',
         'patch': 'partial_update',
@@ -44,12 +44,12 @@ urlpatterns = [
     }), name='public-store-search-products'),
 
     # GET /public/stores/<uuid>/           -> retrieve active by ID
-    path('public/stores/<uuid:store_id>/', StorePublicView.as_view({
+    path('public/stores/<str:store_id>/', StorePublicView.as_view({
         'get': 'retrieve',
     }), name='public-store-detail'),
 
     # GET /public/stores/<uuid>/products/  -> list products by store UUID ID
-    path('public/stores/<uuid:store_id>/products/', StorePublicView.as_view({
+    path('public/stores/<str:store_id>/products/', StorePublicView.as_view({
         'get': 'products',
     }), name='public-store-products'),
 ]

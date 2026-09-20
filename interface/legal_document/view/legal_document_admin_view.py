@@ -40,10 +40,10 @@ class AdminLegalDocumentListView(APIView):
 
 class AdminLegalDocumentDetailView(APIView):
     """
-    GET    /api/v1/admin/legal-documents/<uuid:legal_document_id>/
-    PUT    /api/v1/admin/legal-documents/<uuid:legal_document_id>/
-    PATCH  /api/v1/admin/legal-documents/<uuid:legal_document_id>/
-    DELETE /api/v1/admin/legal-documents/<uuid:legal_document_id>/  (soft-delete)
+    GET    /api/v1/admin/legal-documents/<str:legal_document_id>/
+    PUT    /api/v1/admin/legal-documents/<str:legal_document_id>/
+    PATCH  /api/v1/admin/legal-documents/<str:legal_document_id>/
+    DELETE /api/v1/admin/legal-documents/<str:legal_document_id>/  (soft-delete)
     """
 
     @metadata_handler(required_user_id=True)

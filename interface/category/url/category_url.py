@@ -20,7 +20,7 @@ urlpatterns = [
     # PUT    /admin/categories/<uuid>/      -> full update
     # PATCH  /admin/categories/<uuid>/      -> partial update
     # DELETE /admin/categories/<uuid>/      -> soft delete
-    path('admin/categories/<uuid:category_id>/', CategoryAdminView.as_view({
+    path('admin/categories/<str:category_id>/', CategoryAdminView.as_view({
         'get': 'retrieve',
         'put': 'update',
         'patch': 'partial_update',
@@ -44,7 +44,7 @@ urlpatterns = [
     }), name='public-category-search'),
 
     # GET /public/categories/<uuid>/        -> retrieve active by ID
-    path('public/categories/<uuid:category_id>/', CategoryPublicView.as_view({
+    path('public/categories/<str:category_id>/', CategoryPublicView.as_view({
         'get': 'retrieve',
     }), name='public-category-detail'),
 ]

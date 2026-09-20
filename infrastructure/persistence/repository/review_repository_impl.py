@@ -4,7 +4,7 @@ from domain.review.ports.review_repository import ReviewRepositoryInterface
 from domain.review.entity.review import Review
 from domain.review.exception.review_exception import ReviewException
 from infrastructure.persistence.mapper.review_persistence_mapper import ReviewPersistenceMapper
-from infrastructure.persistence.models.review_model import ProductReview as ProductReviewModel
+from infrastructure.persistence.models.review_model import Review as ProductReviewModel
 from infrastructure.persistence.models.product_model import Product as ProductModel
 from infrastructure.persistence.models.order_model import OrderItem as OrderItemModel
 

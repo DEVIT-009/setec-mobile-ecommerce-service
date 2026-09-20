@@ -6,7 +6,7 @@ urlpatterns = [
         'get': 'list',
         'post': 'create',
     }), name='admin-tag-list-create'),
-    path('tags/<uuid:tag_id>/', TagAdminView.as_view({
+    path('tags/<str:tag_id>/', TagAdminView.as_view({
         'get': 'retrieve',
         'put': 'update',
         'patch': 'partial_update',

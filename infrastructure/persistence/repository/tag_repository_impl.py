@@ -1,4 +1,4 @@
-import uuid
+import re
 from typing import List, Optional, Tuple
 
 from domain.tag.entity.tag import Tag
@@ -6,13 +6,11 @@ from domain.tag.exception.tag_exception import TagException
 from domain.tag.ports.tag_repository import TagRepositoryInterface
 from infrastructure.persistence.models.product_model import Tag as TagModel
 
+_TAG_ID_PATTERN = re.compile(r'^tag-\d{6}$')
 
-def _is_uuid(val: str) -> bool:
-    try:
-        uuid.UUID(str(val))
-        return True
-    except (ValueError, AttributeError, TypeError):
-        return False
+
+def _is_valid_tag_id(val: str) -> bool:
+    return bool(_TAG_ID_PATTERN.match(val)) if val else False
 
 
 class TagRepositoryImpl(TagRepositoryInterface):
@@ -25,20 +23,18 @@ class TagRepositoryImpl(TagRepositoryInterface):
         return [self._to_domain(m) for m in models], total
 
     def get_by_id(self, tag_id: str) -> Optional[Tag]:
-        if not _is_uuid(tag_id):
-            return None
         model = TagModel.objects.filter(id=tag_id).first()
         return self._to_domain(model) if model else None
 
     def exists_by_slug(self, slug: str, exclude_id: Optional[str] = None) -> bool:
         qs = TagModel.objects.filter(slug=slug)
-        if exclude_id and _is_uuid(exclude_id):
+        if exclude_id:
             qs = qs.exclude(id=exclude_id)
         return qs.exists()
 
     def exists_by_name(self, name: str, exclude_id: Optional[str] = None) -> bool:
         qs = TagModel.objects.filter(name__iexact=name)
-        if exclude_id and _is_uuid(exclude_id):
+        if exclude_id:
             qs = qs.exclude(id=exclude_id)
         return qs.exists()
 
@@ -48,8 +44,6 @@ class TagRepositoryImpl(TagRepositoryInterface):
         return self._to_domain(model)
 
     def update(self, tag: Tag) -> Tag:
-        if not _is_uuid(str(tag.id)):
-            raise TagException.not_found()
         model = TagModel.objects.filter(id=tag.id).first()
         if not model:
             raise TagException.not_found()
@@ -59,8 +53,6 @@ class TagRepositoryImpl(TagRepositoryInterface):
         return self._to_domain(model)
 
     def delete(self, tag_id: str) -> None:
-        if not _is_uuid(tag_id):
-            raise TagException.not_found()
         deleted, _ = TagModel.objects.filter(id=tag_id).delete()
         if not deleted:
             raise TagException.not_found()

@@ -9,7 +9,7 @@ class CreateTicketRequest(serializers.Serializer):
     subject = serializers.CharField(max_length=500)
     category = serializers.ChoiceField(choices=TICKET_CATEGORY_CHOICES, default='other')
     priority = serializers.ChoiceField(choices=TICKET_PRIORITY_CHOICES, default='normal', required=False)
-    order_id = serializers.UUIDField(required=False, allow_null=True)
+    order_id = serializers.CharField(required=False, allow_null=True)
     message = serializers.CharField(required=False, allow_blank=True)
 
 
@@ -25,12 +25,11 @@ class AddTicketMessageRequest(serializers.Serializer):
 class AdminUpdateTicketRequest(serializers.Serializer):
     status = serializers.ChoiceField(choices=TICKET_STATUS_CHOICES, required=False)
     priority = serializers.ChoiceField(choices=TICKET_PRIORITY_CHOICES, required=False)
-    assigned_to = serializers.UUIDField(required=False, allow_null=True)
+    assigned_to = serializers.CharField(required=False, allow_null=True)
 
 
 class AdminReplyTicketRequest(serializers.Serializer):
     body = serializers.CharField()
-
 
 
 # Backward-compatibility aliases

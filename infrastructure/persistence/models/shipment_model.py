@@ -1,7 +1,7 @@
-import uuid
 from django.db import models
 from infrastructure.persistence.models.ecom_user_model import EcomUser
 from infrastructure.persistence.models.order_model import Order
+from shared.id_generator.id_generator import generate_shipment_id
 
 
 class Shipment(models.Model):
@@ -15,7 +15,7 @@ class Shipment(models.Model):
         ('returned', 'Returned'),
     ]
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    id = models.CharField(max_length=20, primary_key=True, editable=False)
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='shipments')
     carrier_name = models.CharField(max_length=100, null=True, blank=True)
     tracking_number = models.CharField(max_length=100, null=True, blank=True)
@@ -36,6 +36,11 @@ class Shipment(models.Model):
             models.Index(fields=['status']),
             models.Index(fields=['tracking_number']),
         ]
+
+    def save(self, *args, **kwargs):
+        if not self.id:
+            self.id = generate_shipment_id()
+        super().save(*args, **kwargs)
 
 
 def __getattr__(name):

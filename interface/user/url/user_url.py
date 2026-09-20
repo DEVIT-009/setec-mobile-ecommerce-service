@@ -11,8 +11,8 @@ urlpatterns = [
     path('me/profile/', UserProfileView.as_view(), name='user-profile'),
     path('me/security-settings/', UserSecurityView.as_view(), name='user-security'),
     path('me/sessions/', UserSessionsView.as_view(), name='user-sessions'),
-    path('me/sessions/<uuid:session_id>/', UserSessionRevokeView.as_view(), name='user-session-delete'),
-    path('me/sessions/<uuid:session_id>/revoke/', UserSessionRevokeView.as_view(), name='user-session-revoke'),
+    path('me/sessions/<str:session_id>/', UserSessionRevokeView.as_view(), name='user-session-delete'),
+    path('me/sessions/<str:session_id>/revoke/', UserSessionRevokeView.as_view(), name='user-session-revoke'),
     path('me/reviews/', UserReviewListView.as_view(), name='user-reviews'),
     path('me/legal-acceptances/', UserLegalAcceptancesView.as_view(), name='user-legal-acceptances'),
 ]

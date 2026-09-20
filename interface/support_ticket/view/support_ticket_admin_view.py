@@ -38,8 +38,8 @@ class AdminSupportTicketListView(APIView):
 
 class AdminSupportTicketDetailView(APIView):
     """
-    GET   /api/v1/admin/support/tickets/<uuid:ticket_id>/
-    PATCH /api/v1/admin/support/tickets/<uuid:ticket_id>/  — update status/priority
+    GET   /api/v1/admin/support/tickets/<str:ticket_id>/
+    PATCH /api/v1/admin/support/tickets/<str:ticket_id>/  — update status/priority
     """
 
     @metadata_handler(required_user_id=True)
@@ -62,7 +62,7 @@ class AdminSupportTicketDetailView(APIView):
 
 class AdminSupportTicketReplyView(APIView):
     """
-    POST /api/v1/admin/support/tickets/<uuid:ticket_id>/messages/
+    POST /api/v1/admin/support/tickets/<str:ticket_id>/messages/
     """
 
     @metadata_handler(required_user_id=True)

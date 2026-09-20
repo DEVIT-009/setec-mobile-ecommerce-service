@@ -24,8 +24,8 @@ class AdminShipmentListView(APIView):
 
 class AdminShipmentDetailView(APIView):
     """
-    GET   /api/v1/admin/shipments/<uuid:shipment_id>/
-    PATCH /api/v1/admin/shipments/<uuid:shipment_id>/  — update tracking/status
+    GET   /api/v1/admin/shipments/<str:shipment_id>/
+    PATCH /api/v1/admin/shipments/<str:shipment_id>/  — update tracking/status
     """
 
     @metadata_handler(required_user_id=True)

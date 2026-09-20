@@ -31,9 +31,9 @@ class AdminReviewListView(APIView):
 
 class AdminReviewDetailView(APIView):
     """
-    GET    /api/v1/admin/reviews/<uuid:review_id>/
-    PATCH  /api/v1/admin/reviews/<uuid:review_id>/  — update status (approve/reject)
-    DELETE /api/v1/admin/reviews/<uuid:review_id>/  — soft-delete
+    GET    /api/v1/admin/reviews/<str:review_id>/
+    PATCH  /api/v1/admin/reviews/<str:review_id>/  — update status (approve/reject)
+    DELETE /api/v1/admin/reviews/<str:review_id>/  — soft-delete
     """
 
     @metadata_handler(required_user_id=True)

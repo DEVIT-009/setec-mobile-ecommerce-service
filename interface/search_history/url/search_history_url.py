@@ -3,5 +3,5 @@ from interface.search_history.view.search_history_customer_view import SearchHis
 
 urlpatterns = [
     path('', SearchHistoryCustomerView.as_view({'get': 'list', 'post': 'create', 'delete': 'clear'}), name='customer-search-history-list'),
-    path('<uuid:search_id>/', SearchHistoryCustomerView.as_view({'delete': 'destroy'}), name='customer-search-history-detail'),
+    path('<str:search_id>/', SearchHistoryCustomerView.as_view({'delete': 'destroy'}), name='customer-search-history-detail'),
 ]

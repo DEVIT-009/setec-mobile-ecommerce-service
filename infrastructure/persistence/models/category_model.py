@@ -1,6 +1,6 @@
-import uuid
 from django.db import models
 from infrastructure.persistence.models.ecom_user_model import EcomUser
+from shared.id_generator.id_generator import generate_category_id
 
 
 class Category(models.Model):
@@ -9,7 +9,7 @@ class Category(models.Model):
         ('inactive', 'Inactive'),
     ]
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    id = models.CharField(max_length=20, primary_key=True, editable=False)
     parent = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='children')
     name = models.CharField(max_length=255)
     slug = models.CharField(max_length=255, unique=True)
@@ -33,3 +33,8 @@ class Category(models.Model):
 
     def __str__(self):
         return self.name
+
+    def save(self, *args, **kwargs):
+        if not self.id:
+            self.id = generate_category_id()
+        super().save(*args, **kwargs)

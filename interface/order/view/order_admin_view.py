@@ -35,8 +35,8 @@ class AdminOrderListView(APIView):
 
 class AdminOrderDetailView(APIView):
     """
-    GET   /api/v1/admin/orders/<uuid:order_id>/
-    PATCH /api/v1/admin/orders/<uuid:order_id>/status/  — handled by AdminOrderStatusView
+    GET   /api/v1/admin/orders/<str:order_id>/
+    PATCH /api/v1/admin/orders/<str:order_id>/status/  — handled by AdminOrderStatusView
     """
 
     @metadata_handler(required_user_id=True)
@@ -48,7 +48,7 @@ class AdminOrderDetailView(APIView):
 
 class AdminOrderStatusView(APIView):
     """
-    PATCH /api/v1/admin/orders/<uuid:order_id>/status/
+    PATCH /api/v1/admin/orders/<str:order_id>/status/
     """
 
     @metadata_handler(required_user_id=True)

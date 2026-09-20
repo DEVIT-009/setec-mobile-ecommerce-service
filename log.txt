@@ -1,0 +1,102 @@
+((.venv) ) devit009@DEVIT-Laptop setec_ecom_service % python manage.py migrate
+Operations to perform:
+  Apply all migrations: admin, auth, contenttypes, persistence, sessions
+Running migrations:
+  Applying contenttypes.0001_initial... OK
+  Applying auth.0001_initial... OK
+  Applying admin.0001_initial... OK
+  Applying admin.0002_logentry_remove_auto_add... OK
+  Applying admin.0003_logentry_add_action_flag_choices... OK
+  Applying contenttypes.0002_remove_content_type_name... OK
+  Applying auth.0002_alter_permission_name_max_length... OK
+  Applying auth.0003_alter_user_email_max_length... OK
+  Applying auth.0004_alter_user_username_opts... OK
+  Applying auth.0005_alter_user_last_login_null... OK
+  Applying auth.0006_require_contenttypes_0002... OK
+  Applying auth.0007_alter_validators_add_error_messages... OK
+  Applying auth.0008_alter_user_username_max_length... OK
+  Applying auth.0009_alter_user_last_name_max_length... OK
+  Applying auth.0010_alter_group_name_max_length... OK
+  Applying auth.0011_update_proxy_permissions... OK
+  Applying auth.0012_alter_user_first_name_max_length... OK
+  Applying persistence.0001_initial... OK
+  Applying persistence.0002_rename_ecomcategory_category_delete_categoryentity... OK
+  Applying persistence.0003_search_history_upsert_constraint... OK
+  Applying persistence.0004_search_history_remove_updated_at... OK
+  Applying persistence.0005_id_strategy_enhancement...Traceback (most recent call last):
+  File "/Users/devit009/Documents/dev/setec_ecom_service/.venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 103, in _execute
+    return self.cursor.execute(sql)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/devit009/Documents/dev/setec_ecom_service/.venv/lib/python3.12/site-packages/psycopg/cursor.py", line 117, in execute
+    raise ex.with_traceback(None)
+psycopg.errors.CannotCoerce: cannot cast type uuid to bigint
+LINE 1: ..."favorites" ALTER COLUMN "id" TYPE bigint USING "id"::bigint
+                                                               ^
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/devit009/Documents/dev/setec_ecom_service/manage.py", line 22, in <module>
+    main()
+  File "/Users/devit009/Documents/dev/setec_ecom_service/manage.py", line 18, in main
+    execute_from_command_line(sys.argv)
+  File "/Users/devit009/Documents/dev/setec_ecom_service/.venv/lib/python3.12/site-packages/django/core/management/__init__.py", line 442, in execute_from_command_line
+    utility.execute()
+  File "/Users/devit009/Documents/dev/setec_ecom_service/.venv/lib/python3.12/site-packages/django/core/management/__init__.py", line 436, in execute
+    self.fetch_command(subcommand).run_from_argv(self.argv)
+  File "/Users/devit009/Documents/dev/setec_ecom_service/.venv/lib/python3.12/site-packages/django/core/management/base.py", line 412, in run_from_argv
+    self.execute(*args, **cmd_options)
+  File "/Users/devit009/Documents/dev/setec_ecom_service/.venv/lib/python3.12/site-packages/django/core/management/base.py", line 458, in execute
+    output = self.handle(*args, **options)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/devit009/Documents/dev/setec_ecom_service/.venv/lib/python3.12/site-packages/django/core/management/base.py", line 106, in wrapper
+    res = handle_func(*args, **kwargs)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/devit009/Documents/dev/setec_ecom_service/.venv/lib/python3.12/site-packages/django/core/management/commands/migrate.py", line 356, in handle
+    post_migrate_state = executor.migrate(
+                         ^^^^^^^^^^^^^^^^^
+  File "/Users/devit009/Documents/dev/setec_ecom_service/.venv/lib/python3.12/site-packages/django/db/migrations/executor.py", line 135, in migrate
+    state = self._migrate_all_forwards(
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/devit009/Documents/dev/setec_ecom_service/.venv/lib/python3.12/site-packages/django/db/migrations/executor.py", line 167, in _migrate_all_forwards
+    state = self.apply_migration(
+            ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/devit009/Documents/dev/setec_ecom_service/.venv/lib/python3.12/site-packages/django/db/migrations/executor.py", line 252, in apply_migration
+    state = migration.apply(state, schema_editor)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/devit009/Documents/dev/setec_ecom_service/.venv/lib/python3.12/site-packages/django/db/migrations/migration.py", line 132, in apply
+    operation.database_forwards(
+  File "/Users/devit009/Documents/dev/setec_ecom_service/.venv/lib/python3.12/site-packages/django/db/migrations/operations/fields.py", line 235, in database_forwards
+    schema_editor.alter_field(from_model, from_field, to_field)
+  File "/Users/devit009/Documents/dev/setec_ecom_service/.venv/lib/python3.12/site-packages/django/db/backends/base/schema.py", line 877, in alter_field
+    self._alter_field(
+  File "/Users/devit009/Documents/dev/setec_ecom_service/.venv/lib/python3.12/site-packages/django/db/backends/postgresql/schema.py", line 288, in _alter_field
+    super()._alter_field(
+  File "/Users/devit009/Documents/dev/setec_ecom_service/.venv/lib/python3.12/site-packages/django/db/backends/base/schema.py", line 1134, in _alter_field
+    self.execute(
+  File "/Users/devit009/Documents/dev/setec_ecom_service/.venv/lib/python3.12/site-packages/django/db/backends/postgresql/schema.py", line 48, in execute
+    return super().execute(sql, None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/devit009/Documents/dev/setec_ecom_service/.venv/lib/python3.12/site-packages/django/db/backends/base/schema.py", line 201, in execute
+    cursor.execute(sql, params)
+  File "/Users/devit009/Documents/dev/setec_ecom_service/.venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 122, in execute
+    return super().execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/devit009/Documents/dev/setec_ecom_service/.venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 79, in execute
+    return self._execute_with_wrappers(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/devit009/Documents/dev/setec_ecom_service/.venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 92, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/devit009/Documents/dev/setec_ecom_service/.venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 100, in _execute
+    with self.db.wrap_database_errors:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/devit009/Documents/dev/setec_ecom_service/.venv/lib/python3.12/site-packages/django/db/utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "/Users/devit009/Documents/dev/setec_ecom_service/.venv/lib/python3.12/site-packages/django/db/backends/utils.py", line 103, in _execute
+    return self.cursor.execute(sql)
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/devit009/Documents/dev/setec_ecom_service/.venv/lib/python3.12/site-packages/psycopg/cursor.py", line 117, in execute
+    raise ex.with_traceback(None)
+django.db.utils.ProgrammingError: cannot cast type uuid to bigint
+LINE 1: ..."favorites" ALTER COLUMN "id" TYPE bigint USING "id"::bigint

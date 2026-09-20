@@ -2,8 +2,8 @@ from rest_framework import serializers
 
 
 class CreateConversationRequest(serializers.Serializer):
-    store_id = serializers.UUIDField(required=False, allow_null=True)
-    order_id = serializers.UUIDField(required=False, allow_null=True)
+    store_id = serializers.CharField(required=False, allow_null=True)
+    order_id = serializers.CharField(required=False, allow_null=True)
 
 
 class SendMessageRequest(serializers.Serializer):

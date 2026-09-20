@@ -658,7 +658,67 @@ class CategoryPersistenceMapper:
 
 ---
 
-## 7. Summary Checklist for New / Refactored Features
+## 7. Persistence Safety Rule — `force_insert` on Create
+
+> **Origin**: `Enhancement.md` (added 2026-09-20)
+
+All repository `create` methods that build a new ORM model and call `.save()` **MUST** use `save(force_insert=True)`.
+
+### Why
+Our entities use **custom generated primary keys** (e.g. `prod-000001`, `cat-000003`). Django's default `model.save()` performs a `SELECT` to decide INSERT vs UPDATE. If a PK happens to already exist in the database, the call silently becomes an UPDATE, corrupting existing data. Using `force_insert=True` tells Django to always issue an `INSERT` statement; PostgreSQL then raises an `IntegrityError` on a collision instead of silently overwriting.
+
+### Rules
+
+| Operation | Pattern | `force_insert`? |
+|---|---|---|
+| **Create** — new model built from `to_model(entity)` | `model.save(force_insert=True)` | ✅ Yes |
+| **Update** — existing model fetched from DB then mutated | `model.save()` | ❌ No |
+| **Soft-delete** — existing model fetched, `deleted_at` set | `model.save()` | ❌ No |
+| **Create-or-update** — `save()` with prior existence check | `db.save()` (leave as-is) | ❌ No — the caller already resolved intent |
+| **`objects.create(...)`** | Already INSERT-only — no change needed | N/A |
+
+### Code patterns
+
+```python
+# ✅ CREATE — always force INSERT
+def create(self, entity: MyEntity, actor_id: Optional[str] = None) -> MyEntity:
+    model = MyPersistenceMapper.to_model(entity)
+    if actor_id:
+        model.created_by_id = actor_id
+        model.updated_by_id = actor_id
+    model.save(force_insert=True)          # ← required
+    return MyPersistenceMapper.from_entity(model)
+
+# ✅ UPDATE — normal save, never force_insert
+def update(self, entity: MyEntity, actor_id: Optional[str] = None) -> MyEntity:
+    model = MyModel.objects.filter(id=entity.id, deleted_at__isnull=True).first()
+    if not model:
+        raise MyException.not_found()
+    model = MyPersistenceMapper.to_model(entity, model)
+    if actor_id:
+        model.updated_by_id = actor_id
+    model.save()                           # ← no force_insert
+    return MyPersistenceMapper.from_entity(model)
+
+# ✅ SOFT DELETE — normal save
+def soft_delete(self, resource_id: str, actor_id: Optional[str] = None) -> None:
+    model = MyModel.objects.filter(id=resource_id, deleted_at__isnull=True).first()
+    if not model:
+        raise MyException.not_found()
+    model.deleted_at = timezone.now()
+    if actor_id:
+        model.deleted_by_id = actor_id
+    model.save()                           # ← no force_insert
+```
+
+### Intentionally NOT changed
+- **`objects.create(...)`** calls — Django uses `INSERT` internally; no `.save()` involved.
+- **`save()`-based create-or-update helpers** (e.g. `save()`, `save_item()`, `save_session()`) where the caller checks existence before calling — intent is already resolved by the caller.
+- Search, notification, shipment, legal repos have no relevant `.save()` create paths.
+
+---
+
+## 8. Summary Checklist for New / Refactored Features
 
 | Step | Layer | File to Create / Check | Check Rule |
 |---|---|---|---|

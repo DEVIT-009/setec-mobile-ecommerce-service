@@ -1,6 +1,6 @@
-import uuid
 from django.db import models
 from infrastructure.persistence.models.ecom_user_model import EcomUser
+from shared.id_generator.id_generator import generate_legal_document_id
 
 
 class LegalDocument(models.Model):
@@ -16,7 +16,8 @@ class LegalDocument(models.Model):
         ('archived', 'Archived'),
     ]
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    # legdoc-NN  (2-digit sequence, e.g. legdoc-01)
+    id = models.CharField(max_length=12, primary_key=True, editable=False)
     type = models.CharField(max_length=20, choices=TYPE_CHOICES)
     title = models.CharField(max_length=255)
     version = models.CharField(max_length=50)
@@ -37,6 +38,11 @@ class LegalDocument(models.Model):
             models.Index(fields=['type']),
             models.Index(fields=['status']),
         ]
+
+    def save(self, *args, **kwargs):
+        if not self.id:
+            self.id = generate_legal_document_id()
+        super().save(*args, **kwargs)
 
 
 __all__ = ['LegalDocument']

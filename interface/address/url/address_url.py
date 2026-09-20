@@ -11,14 +11,14 @@ urlpatterns = [
 
     # POST  /api/v1/customer/addresses/<uuid>/default/     -> set default
     # PATCH /api/v1/customer/addresses/<uuid>/default/     -> set default
-    path('<uuid:address_id>/default/', AddressCustomerView.as_view({
+    path('<str:address_id>/default/', AddressCustomerView.as_view({
         'post': 'set_default',
         'patch': 'set_default',
     }), name='customer-address-default'),
 
     # POST  /api/v1/customer/addresses/<uuid>/set-default/ -> set default alias
     # PATCH /api/v1/customer/addresses/<uuid>/set-default/ -> set default alias
-    path('<uuid:address_id>/set-default/', AddressCustomerView.as_view({
+    path('<str:address_id>/set-default/', AddressCustomerView.as_view({
         'post': 'set_default',
         'patch': 'set_default',
     }), name='customer-address-set-default'),
@@ -27,7 +27,7 @@ urlpatterns = [
     # PUT    /api/v1/customer/addresses/<uuid>/             -> update (full)
     # PATCH  /api/v1/customer/addresses/<uuid>/             -> partial_update
     # DELETE /api/v1/customer/addresses/<uuid>/             -> destroy
-    path('<uuid:address_id>/', AddressCustomerView.as_view({
+    path('<str:address_id>/', AddressCustomerView.as_view({
         'get': 'retrieve',
         'put': 'update',
         'patch': 'partial_update',

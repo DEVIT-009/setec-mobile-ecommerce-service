@@ -64,7 +64,7 @@ class ReviewServiceFacade(ReviewServiceInterface):
         }
 
     def list_admin(self, filters: dict, page: int, page_size: int) -> Dict[str, Any]:
-        from infrastructure.persistence.models.review_model import ProductReview
+        from infrastructure.persistence.models.review_model import Review as ProductReview
         qs = ProductReview.objects.filter(deleted_at__isnull=True).order_by('-created_at')
         if filters.get('status'):
             qs = qs.filter(status=filters['status'])

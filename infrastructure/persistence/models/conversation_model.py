@@ -1,8 +1,8 @@
-import uuid
 from django.db import models
 from infrastructure.persistence.models.ecom_user_model import EcomUser
 from infrastructure.persistence.models.store_model import Store
 from infrastructure.persistence.models.order_model import Order
+from shared.id_generator.id_generator import generate_conversation_id
 
 
 class Conversation(models.Model):
@@ -12,7 +12,7 @@ class Conversation(models.Model):
         ('archived', 'Archived'),
     ]
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    id = models.CharField(max_length=20, primary_key=True, editable=False)
     customer = models.ForeignKey(EcomUser, on_delete=models.CASCADE, related_name='conversations')
     store = models.ForeignKey(Store, null=True, blank=True, on_delete=models.SET_NULL, related_name='conversations')
     order = models.ForeignKey(Order, null=True, blank=True, on_delete=models.SET_NULL, related_name='conversations')
@@ -33,6 +33,11 @@ class Conversation(models.Model):
             models.Index(fields=['order']),
             models.Index(fields=['status']),
         ]
+
+    def save(self, *args, **kwargs):
+        if not self.id:
+            self.id = generate_conversation_id()
+        super().save(*args, **kwargs)
 
 
 def __getattr__(name):

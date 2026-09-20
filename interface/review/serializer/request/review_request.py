@@ -5,7 +5,7 @@ class CreateReviewRequest(serializers.Serializer):
     rating = serializers.IntegerField(min_value=1, max_value=5)
     title = serializers.CharField(required=False, allow_blank=True)
     body = serializers.CharField(required=False, allow_blank=True)
-    order_item_id = serializers.UUIDField(required=False, allow_null=True)
+    order_item_id = serializers.CharField(required=False, allow_null=True)
 
 
 class UpdateReviewRequest(serializers.Serializer):

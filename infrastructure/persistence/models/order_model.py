@@ -1,8 +1,8 @@
-import uuid
 from django.db import models
 from infrastructure.persistence.models.ecom_user_model import EcomUser
 from infrastructure.persistence.models.user_address_model import UserAddress
 from infrastructure.persistence.models.store_model import Store
+from shared.id_generator.id_generator import generate_order_id
 
 
 class Order(models.Model):
@@ -17,8 +17,9 @@ class Order(models.Model):
         ('refunded', 'Refunded'),
     ]
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    order_number = models.CharField(max_length=50, unique=True)
+    # The formatted ID IS the order identifier (ord-YYYYMMDD-NNNN).
+    # No separate order_number field is needed.
+    id = models.CharField(max_length=30, primary_key=True, editable=False)
     user = models.ForeignKey(EcomUser, on_delete=models.RESTRICT, related_name='orders')
     store = models.ForeignKey(Store, on_delete=models.RESTRICT, related_name='orders')
     shipping_address = models.ForeignKey(UserAddress, null=True, blank=True, on_delete=models.SET_NULL, related_name='orders')
@@ -48,7 +49,12 @@ class Order(models.Model):
         ]
 
     def __str__(self):
-        return self.order_number
+        return self.id
+
+    def save(self, *args, **kwargs):
+        if not self.id:
+            self.id = generate_order_id()
+        super().save(*args, **kwargs)
 
 
 def __getattr__(name):

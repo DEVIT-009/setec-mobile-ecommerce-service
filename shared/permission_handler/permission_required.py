@@ -29,13 +29,8 @@ def require_roles(*required_roles: str):
         def wrapper(view, request, *args, **kwargs):
             metadata = kwargs.get("metadata")
             if not metadata or metadata.user_id is None:
-                # metadata_handler should have already raised 401 if JWT is
-                # missing; this is a safety net for misconfigured decorators.
                 raise AuthException.unauthorized()
 
-            # Reject immediately if no roles were specified in the decorator
-            # (calling @require_roles() with no args is a programming error but
-            # we treat it as an unconditional 403 to fail safe).
             if not required_roles:
                 raise AuthException.forbidden()
 

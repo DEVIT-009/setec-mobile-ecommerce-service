@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 
 class VariantOptionRequest(serializers.Serializer):
-    variant_id = serializers.UUIDField()
+    variant_id = serializers.CharField()
     name = serializers.CharField(max_length=100)
     value = serializers.CharField(max_length=100)
 

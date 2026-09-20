@@ -3,9 +3,9 @@ from interface.shipment.view.shipment_admin_view import AdminShipmentListView, A
 
 # Admin shipment management endpoints — require authentication + admin role.
 # GET   /api/v1/admin/shipments/
-# GET   /api/v1/admin/shipments/<uuid:shipment_id>/
-# PATCH /api/v1/admin/shipments/<uuid:shipment_id>/
+# GET   /api/v1/admin/shipments/<str:shipment_id>/
+# PATCH /api/v1/admin/shipments/<str:shipment_id>/
 urlpatterns = [
     path('shipments/', AdminShipmentListView.as_view(), name='admin-shipment-list'),
-    path('shipments/<uuid:shipment_id>/', AdminShipmentDetailView.as_view(), name='admin-shipment-detail'),
+    path('shipments/<str:shipment_id>/', AdminShipmentDetailView.as_view(), name='admin-shipment-detail'),
 ]

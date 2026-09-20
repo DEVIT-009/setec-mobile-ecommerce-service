@@ -7,7 +7,7 @@ class VariantOptionRequest(serializers.Serializer):
 
 
 class ProductVariantRequest(serializers.Serializer):
-    product_id = serializers.UUIDField()
+    product_id = serializers.CharField()
     name = serializers.CharField(max_length=255)
     sku = serializers.CharField(max_length=100, required=False, allow_null=True, allow_blank=True)
     price = serializers.DecimalField(max_digits=12, decimal_places=2, required=False, allow_null=True)

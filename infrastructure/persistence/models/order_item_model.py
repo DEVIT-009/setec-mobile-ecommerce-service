@@ -1,13 +1,13 @@
-import uuid
 from django.db import models
 from infrastructure.persistence.models.ecom_user_model import EcomUser
 from infrastructure.persistence.models.order_model import Order
 from infrastructure.persistence.models.product_model import Product
 from infrastructure.persistence.models.product_variant_model import ProductVariant
+from shared.id_generator.id_generator import generate_order_item_id
 
 
 class OrderItem(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    id = models.CharField(max_length=20, primary_key=True, editable=False)
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
     product = models.ForeignKey(Product, null=True, blank=True, on_delete=models.SET_NULL, related_name='order_items')
     product_variant = models.ForeignKey(ProductVariant, null=True, blank=True, on_delete=models.SET_NULL, related_name='order_items')
@@ -30,6 +30,11 @@ class OrderItem(models.Model):
             models.Index(fields=['order']),
             models.Index(fields=['product']),
         ]
+
+    def save(self, *args, **kwargs):
+        if not self.id:
+            self.id = generate_order_item_id()
+        super().save(*args, **kwargs)
 
 
 __all__ = ['OrderItem']

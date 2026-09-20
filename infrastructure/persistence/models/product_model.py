@@ -1,8 +1,8 @@
-import uuid
 from django.db import models
 from infrastructure.persistence.models.ecom_user_model import EcomUser
 from infrastructure.persistence.models.store_model import Store
 from infrastructure.persistence.models.category_model import Category
+from shared.id_generator.id_generator import generate_product_id
 
 
 class Product(models.Model):
@@ -13,7 +13,7 @@ class Product(models.Model):
         ('out_of_stock', 'Out of Stock'),
     ]
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    id = models.CharField(max_length=20, primary_key=True, editable=False)
     store = models.ForeignKey(Store, on_delete=models.RESTRICT, related_name='products')
     category = models.ForeignKey(Category, null=True, blank=True, on_delete=models.SET_NULL, related_name='products')
     name = models.CharField(max_length=255)
@@ -47,6 +47,11 @@ class Product(models.Model):
 
     def __str__(self):
         return self.name
+
+    def save(self, *args, **kwargs):
+        if not self.id:
+            self.id = generate_product_id()
+        super().save(*args, **kwargs)
 
 
 def __getattr__(name):

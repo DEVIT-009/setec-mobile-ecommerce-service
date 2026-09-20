@@ -1,10 +1,10 @@
-import uuid
 from django.db import models
 from infrastructure.persistence.models.ecom_user_model import EcomUser
+from shared.id_generator.id_generator import generate_address_id
 
 
 class UserAddress(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    id = models.CharField(max_length=20, primary_key=True, editable=False)
     user = models.ForeignKey(EcomUser, on_delete=models.CASCADE, related_name='addresses')
     label = models.CharField(max_length=100, null=True, blank=True)
     recipient_name = models.CharField(max_length=255)
@@ -31,6 +31,11 @@ class UserAddress(models.Model):
 
     def __str__(self):
         return f"{self.recipient_name} - {self.city}"
+
+    def save(self, *args, **kwargs):
+        if not self.id:
+            self.id = generate_address_id()
+        super().save(*args, **kwargs)
 
 
 Address = UserAddress

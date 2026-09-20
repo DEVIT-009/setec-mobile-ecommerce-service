@@ -1,10 +1,10 @@
-import uuid
 from django.db import models
 from infrastructure.persistence.models.ecom_user_model import EcomUser
 
 
 class SearchHistory(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    # Numeric BigAutoField PK per the ID strategy spec
+    id = models.BigAutoField(primary_key=True)
     user = models.ForeignKey(EcomUser, null=True, blank=True, on_delete=models.CASCADE, related_name='search_history')
     query = models.CharField(max_length=500)
     filters_json = models.JSONField(null=True, blank=True)

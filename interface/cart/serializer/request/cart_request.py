@@ -2,8 +2,8 @@ from rest_framework import serializers
 
 
 class CartItemRequest(serializers.Serializer):
-    product_id = serializers.UUIDField()
-    product_variant_id = serializers.UUIDField(required=False, allow_null=True)
+    product_id = serializers.CharField()
+    product_variant_id = serializers.CharField(required=False, allow_null=True)
     quantity = serializers.IntegerField(min_value=1, default=1)
 
 
@@ -17,7 +17,7 @@ class SelectAllRequest(serializers.Serializer):
 
 
 class CheckoutPreviewRequest(serializers.Serializer):
-    shipping_address_id = serializers.UUIDField(required=False, allow_null=True)
+    shipping_address_id = serializers.CharField(required=False, allow_null=True)
 
 
 # Backward-compatibility aliases

@@ -1,6 +1,6 @@
 from typing import Optional
 from domain.review.entity.review import Review as DomainReview
-from infrastructure.persistence.models.review_model import ProductReview as ProductReviewModel
+from infrastructure.persistence.models.review_model import Review as ProductReviewModel
 
 
 class ReviewPersistenceMapper:

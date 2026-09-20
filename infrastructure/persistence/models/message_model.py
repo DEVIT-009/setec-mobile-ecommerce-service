@@ -1,7 +1,7 @@
-import uuid
 from django.db import models
 from infrastructure.persistence.models.ecom_user_model import EcomUser
 from infrastructure.persistence.models.conversation_model import Conversation
+from shared.id_generator.id_generator import generate_message_id
 
 
 class Message(models.Model):
@@ -11,7 +11,7 @@ class Message(models.Model):
         ('system', 'System'),
     ]
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    id = models.CharField(max_length=20, primary_key=True, editable=False)
     conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, related_name='messages')
     sender = models.ForeignKey(EcomUser, on_delete=models.CASCADE, related_name='sent_messages')
     message_type = models.CharField(max_length=10, choices=TYPE_CHOICES, default='text')
@@ -28,6 +28,11 @@ class Message(models.Model):
             models.Index(fields=['sender']),
             models.Index(fields=['created_at']),
         ]
+
+    def save(self, *args, **kwargs):
+        if not self.id:
+            self.id = generate_message_id()
+        super().save(*args, **kwargs)
 
 
 __all__ = ['Message']

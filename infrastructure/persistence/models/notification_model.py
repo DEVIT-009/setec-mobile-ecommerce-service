@@ -1,6 +1,6 @@
-import uuid
 from django.db import models
 from infrastructure.persistence.models.ecom_user_model import EcomUser
+from shared.id_generator.id_generator import generate_notification_id
 
 
 class Notification(models.Model):
@@ -17,7 +17,7 @@ class Notification(models.Model):
         ('failed', 'Failed'),
     ]
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    id = models.CharField(max_length=20, primary_key=True, editable=False)
     user = models.ForeignKey(EcomUser, on_delete=models.CASCADE, related_name='notifications')
     type = models.CharField(max_length=15, choices=TYPE_CHOICES)
     title = models.CharField(max_length=255)
@@ -36,3 +36,8 @@ class Notification(models.Model):
             models.Index(fields=['status']),
             models.Index(fields=['read_at']),
         ]
+
+    def save(self, *args, **kwargs):
+        if not self.id:
+            self.id = generate_notification_id()
+        super().save(*args, **kwargs)
