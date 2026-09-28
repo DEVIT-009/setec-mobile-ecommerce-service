@@ -43,8 +43,13 @@ urlpatterns = [
         'get': 'retrieve_by_slug',
     }), name='public-category-search'),
 
-    # GET /public/categories/<uuid>/        -> retrieve active by ID
+    # GET /public/categories/<id>/          -> retrieve active category by ID
     path('public/categories/<str:category_id>/', CategoryPublicView.as_view({
         'get': 'retrieve',
     }), name='public-category-detail'),
+
+    # GET /public/categories/<id>/products/ -> category detail + its active products
+    path('public/categories/<str:category_id>/products/', CategoryPublicView.as_view({
+        'get': 'products',
+    }), name='public-category-products'),
 ]

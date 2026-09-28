@@ -2,6 +2,7 @@ from django.core.management.base import BaseCommand
 from django.contrib.auth.hashers import make_password
 from django.utils import timezone
 from infrastructure.persistence.models.ecom_user_model import EcomUser, UserProfile, UserSecuritySettings
+from infrastructure.persistence.models.role_model import Role, UserRole
 
 
 class Command(BaseCommand):
@@ -15,7 +16,7 @@ class Command(BaseCommand):
                 "first_name": "Jane",
                 "last_name": "Customer",
                 "phone_number": "+12345678901",
-                "role": "customer",
+                "roles": ["customer"],
                 "status": "active",
             },
             {
@@ -24,7 +25,7 @@ class Command(BaseCommand):
                 "first_name": "Admin",
                 "last_name": "User",
                 "phone_number": "+12345678902",
-                "role": "admin",
+                "roles": ["admin"],
                 "status": "active",
             },
             {
@@ -33,7 +34,7 @@ class Command(BaseCommand):
                 "first_name": "Support",
                 "last_name": "Agent",
                 "phone_number": "+12345678903",
-                "role": "support",
+                "roles": ["support"],
                 "status": "active",
             },
         ]
@@ -48,7 +49,6 @@ class Command(BaseCommand):
                     "first_name": u["first_name"],
                     "last_name": u["last_name"],
                     "phone_number": u["phone_number"],
-                    "role": u["role"],
                     "status": u["status"],
                     "email_verified_at": now,
                     "deleted_at": None,
@@ -58,7 +58,19 @@ class Command(BaseCommand):
             UserProfile.objects.get_or_create(user=user)
             UserSecuritySettings.objects.get_or_create(user=user)
 
+            # Clear existing roles and assign the seeded roles
+            UserRole.objects.filter(user=user).delete()
+            for role_slug in u["roles"]:
+                role_obj = Role.objects.filter(slug=role_slug).first()
+                if role_obj:
+                    UserRole.objects.get_or_create(user=user, role=role_obj)
+                else:
+                    self.stdout.write(
+                        self.style.WARNING(f"  Role '{role_slug}' not found — run seed_roles first.")
+                    )
+
             action = "Created" if created else "Updated"
-            self.stdout.write(self.style.SUCCESS(f"[{action}] {u['role'].capitalize()} user: {u['email']}"))
+            roles_str = ", ".join(u["roles"])
+            self.stdout.write(self.style.SUCCESS(f"[{action}] User: {u['email']} (roles: {roles_str})"))
 
         self.stdout.write(self.style.SUCCESS("Seed users successfully provisioned!"))

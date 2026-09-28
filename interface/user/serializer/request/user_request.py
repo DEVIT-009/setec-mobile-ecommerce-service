@@ -20,6 +20,21 @@ class SecurityUpdateRequest(serializers.Serializer):
     biometric_enabled = serializers.BooleanField(required=False)
 
 
+class AdminUserUpdateRequest(serializers.Serializer):
+    """Request body for admin-level user update (status + role assignment)."""
+    status = serializers.ChoiceField(
+        choices=['active', 'inactive', 'blocked', 'pending_verification'],
+        required=False,
+    )
+    roles = serializers.ListField(
+        child=serializers.CharField(),
+        required=False,
+        help_text="List of role slugs to assign to the user (replaces existing roles).",
+    )
+    first_name = serializers.CharField(required=False)
+    last_name = serializers.CharField(required=False)
+
+
 # Backward-compatibility aliases
 UserUpdateSerializer = UserUpdateRequest
 ProfileUpdateSerializer = ProfileUpdateRequest

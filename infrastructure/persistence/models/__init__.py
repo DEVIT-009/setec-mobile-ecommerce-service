@@ -1,9 +1,10 @@
-from .user_model import User
 from .ecom_user_model import EcomUser
 from .user_profile_model import UserProfile
 from .user_address_model import UserAddress, Address
 from .user_security_settings_model import UserSecuritySettings
 from .user_session_model import UserSession
+from .role_model import Role, UserRole
+from .permission_model import Permission, RoleHasPermission
 from .category_model import Category
 from .store_model import Store
 from .tag_model import Tag
@@ -32,13 +33,16 @@ from .legal_acceptance_model import LegalAcceptance
 from .id_sequence_model import IdSequence
 
 __all__ = [
-    'User',
     'EcomUser',
     'UserProfile',
     'UserAddress',
     'Address',
     'UserSecuritySettings',
     'UserSession',
+    'Role',
+    'UserRole',
+    'Permission',
+    'RoleHasPermission',
     'Category',
     'Store',
     'Tag',

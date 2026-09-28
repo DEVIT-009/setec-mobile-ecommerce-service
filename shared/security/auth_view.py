@@ -1,7 +1,6 @@
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 
-from infrastructure.persistence.models.user_model import User
 from .auth_exception import AuthException
 from .jwt_util import JwtUtil
 from .user_login_request import UserLoginRequest
@@ -14,28 +13,28 @@ class AuthView(APIView):
     authentication_classes = []
     permission_classes = []
 
-    @staticmethod
-    def post(request, *args, **kwargs):
+    # @staticmethod
+    # def post(request, *args, **kwargs):
 
-        serializer = UserLoginRequest(data=request.data)
-        if not serializer.is_valid():
-            return ResponseHandler.bad_request(
-                message="Invalid input", data=serializer.errors
-            )
+    #     serializer = UserLoginRequest(data=request.data)
+    #     if not serializer.is_valid():
+    #         return ResponseHandler.bad_request(
+    #             message="Invalid input", data=serializer.errors
+    #         )
 
-        email = serializer.validated_data["email"]
-        password = serializer.validated_data["password"]
+    #     email = serializer.validated_data["email"]
+    #     password = serializer.validated_data["password"]
 
-        user = User.objects.filter(email=email, deleted_at__isnull=True).first()
-        if not user or not user.check_password(password) or not user.is_active:
-            raise AuthException.unauthorized()
+    #     user = User.objects.filter(email=email, deleted_at__isnull=True).first()
+    #     if not user or not user.check_password(password) or not user.is_active:
+    #         raise AuthException.unauthorized()
 
-        token_value = JwtUtil.generate_token(user)
+    #     token_value = JwtUtil.generate_token(user)
 
-        return ResponseHandler.success(
-            message="Login successful",
-            data={"access_token": token_value}
-        )
+    #     return ResponseHandler.success(
+    #         message="Login successful",
+    #         data={"access_token": token_value}
+    #     )
 
 
 # class RegisterView(APIView):

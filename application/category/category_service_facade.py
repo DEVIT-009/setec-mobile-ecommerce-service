@@ -3,13 +3,15 @@ from domain.category.ports.category_repository import CategoryRepositoryInterfac
 from domain.category.service.category_service import CategoryServiceInterface
 from domain.category.entity.category import Category
 from domain.category.exception.category_exception import CategoryException
+from domain.product.ports.product_repository import ProductRepositoryInterface
 from interface.category.serializer.mapper.category_controller_mapper import CategoryControllerMapper
 
 
 class CategoryServiceFacade(CategoryServiceInterface):
 
-    def __init__(self, repo: CategoryRepositoryInterface):
+    def __init__(self, repo: CategoryRepositoryInterface, product_repo: ProductRepositoryInterface):
         self.repo = repo
+        self.product_repo = product_repo
 
     def list_active(self, parent_id: Optional[str] = None) -> List[Dict[str, Any]]:
         categories = self.repo.list_active(parent_id)
@@ -51,6 +53,20 @@ class CategoryServiceFacade(CategoryServiceInterface):
 
     # Alias for any older caller expecting get_by_slug_admin
     get_by_slug_admin = get_admin
+
+    def list_products(self, category_id: str, page: int = 1, page_size: int = 20, user_id: Optional[str] = None) -> Dict[str, Any]:
+        """Return category detail with paginated active products belonging to that category."""
+        category = self.repo.get_by_id(category_id)
+        if not category:
+            raise CategoryException.not_found()
+
+        products, total = self.product_repo.list_active(
+            filters={'category_id': category.id},
+            page=page,
+            page_size=page_size,
+            user_id=user_id,
+        )
+        return CategoryControllerMapper.to_response_with_products(category, products)
 
     def _to_tree_dict(self, cat: Category) -> Dict[str, Any]:
         data = CategoryControllerMapper.to_response(cat)

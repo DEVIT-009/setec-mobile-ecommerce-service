@@ -6,7 +6,6 @@ urlpatterns = [
 
     path('api/v1/users/', include('interface.user.url.user_url')),
 
-    re_path(r'^api/v1/legacy-auth/?', include('shared.security.auth_url')),
     re_path(r'^api/v1/auth/?', include('interface.auth.url.auth_url')),
 
     path('api/v1/', include('interface.category.url.category_url')),

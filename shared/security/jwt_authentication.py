@@ -1,6 +1,5 @@
 from rest_framework.authentication import BaseAuthentication
 
-from infrastructure.persistence.models.user_model import User
 from infrastructure.persistence.models.ecom_user_model import EcomUser
 from .jwt_util import JwtUtil
 from .auth_exception import AuthException
@@ -24,10 +23,7 @@ class JwtAuthentication(BaseAuthentication):
 
         user = EcomUser.objects.filter(email=email, deleted_at__isnull=True).first()
         if not user:
-            try:
-                user = User.objects.get(email=email)
-            except User.DoesNotExist:
-                raise AuthException.unauthorized()
+            raise AuthException.unauthorized()
 
         if not JwtUtil.validate_token(token, user):
             raise AuthException.unauthorized()

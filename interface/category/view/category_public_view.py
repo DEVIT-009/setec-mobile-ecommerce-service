@@ -5,6 +5,7 @@ from application.category.factory.category_service_factory import category_servi
 from domain.category.exception.category_exception import CategoryException
 from domain.category.service.category_service import CategoryServiceInterface
 from shared.metadata_handler.request_header_utillity import metadata_handler, Metadata
+from shared.pagination.api_paging import ApiPaging
 from shared.responseutils.response_handler import ResponseHandler
 
 
@@ -39,4 +40,17 @@ class CategoryPublicView(viewsets.ViewSet):
         if not slug:
             raise CategoryException.not_found("Slug query parameter is required")
         result = self.category_service.get_by_slug(slug)
+        return ResponseHandler.api_success(result)
+
+    @metadata_handler(required_user_id=False, optional_user_id=True)
+    def products(self, request: Request, category_id=None, *, metadata: Metadata):
+        if category_id is None:
+            raise CategoryException.not_found()
+        paging = ApiPaging.from_request(request)
+        result = self.category_service.list_products(
+            str(category_id),
+            page=paging['page'],
+            page_size=paging['page_size'],
+            user_id=metadata.user_id,
+        )
         return ResponseHandler.api_success(result)

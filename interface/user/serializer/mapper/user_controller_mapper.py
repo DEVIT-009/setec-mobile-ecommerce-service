@@ -25,7 +25,7 @@ class UserControllerMapper:
             first_name=user.first_name,
             last_name=user.last_name,
             avatar_url=user.avatar_url,
-            role=user.role,
+            roles=user.roles,
             status=user.status,
             email_verified_at=user.email_verified_at.isoformat() if user.email_verified_at else None,
             phone_verified_at=user.phone_verified_at.isoformat() if user.phone_verified_at else None,
@@ -67,4 +67,3 @@ class UserControllerMapper:
             created_at=session.created_at.isoformat() if session.created_at else None,
         )
         return asdict(response_dto)
-

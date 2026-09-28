@@ -1,5 +1,5 @@
-from dataclasses import dataclass
-from typing import Optional, Dict, Any
+from dataclasses import dataclass, field
+from typing import Optional, Dict, Any, List
 
 
 @dataclass
@@ -45,7 +45,7 @@ class UserResponse:
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     avatar_url: Optional[str] = None
-    role: Optional[str] = None
+    roles: List[str] = field(default_factory=list)  # list of role slugs
     status: Optional[str] = None
     email_verified_at: Optional[str] = None
     phone_verified_at: Optional[str] = None

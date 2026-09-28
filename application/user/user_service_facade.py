@@ -85,21 +85,27 @@ class UserServiceFacade(UserServiceInterface):
     def list_admin(self, filters: dict, page: int, page_size: int) -> Dict[str, Any]:
         from infrastructure.persistence.models.ecom_user_model import EcomUser
         qs = EcomUser.objects.filter(deleted_at__isnull=True).order_by('-created_at')
+        # Filter by role slug via junction table
         if filters.get('role'):
-            qs = qs.filter(role=filters['role'])
+            qs = qs.filter(user_roles__role__slug=filters['role'])
         if filters.get('status'):
             qs = qs.filter(status=filters['status'])
         if filters.get('q'):
             qs = qs.filter(email__icontains=filters['q'])
 
+        qs = qs.distinct()
         total = qs.count()
         offset = (page - 1) * page_size
         users = list(qs[offset:offset + page_size])
         return {
             "items": [
                 {
-                    "id": str(u.id), "email": u.email, "first_name": u.first_name,
-                    "last_name": u.last_name, "role": u.role, "status": u.status,
+                    "id": str(u.id),
+                    "email": u.email,
+                    "first_name": u.first_name,
+                    "last_name": u.last_name,
+                    "roles": u.get_role_slugs(),
+                    "status": u.status,
                     "created_at": u.created_at.isoformat() if u.created_at else None,
                 }
                 for u in users
@@ -111,10 +117,27 @@ class UserServiceFacade(UserServiceInterface):
         return self.get_me(user_id)
 
     def update_admin_user(self, user_id: str, data: dict) -> Dict[str, Any]:
+        from infrastructure.persistence.models.ecom_user_model import EcomUser
+        from infrastructure.persistence.models.role_model import Role, UserRole
+
         user = self.user_repo.get_by_id(user_id)
         if not user:
             raise UserException.not_found()
-        for field in ['role', 'status', 'first_name', 'last_name']:
+
+        db_user = EcomUser.objects.get(id=user_id)
+
+        # Handle role assignment via junction table
+        if 'roles' in data:
+            role_slugs = data['roles'] if isinstance(data['roles'], list) else [data['roles']]
+            # Remove old assignments
+            UserRole.objects.filter(user=db_user).delete()
+            # Add new assignments
+            for slug in role_slugs:
+                role_obj = Role.objects.filter(slug=slug).first()
+                if role_obj:
+                    UserRole.objects.get_or_create(user=db_user, role=role_obj)
+
+        for field in ['status', 'first_name', 'last_name']:
             if field in data:
                 setattr(user, field, data[field])
         saved = self.user_repo.save(user)

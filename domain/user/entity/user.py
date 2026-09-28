@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
+
 
 @dataclass
 class User:
@@ -10,13 +11,14 @@ class User:
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     avatar_url: Optional[str] = None
-    role: str = "customer"
+    roles: List[str] = field(default_factory=list)  # list of role slugs
     status: str = "pending_verification"
     email_verified_at: Optional[datetime] = None
     phone_verified_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     deleted_at: Optional[datetime] = None
+
 
 @dataclass
 class UserProfile:
@@ -28,6 +30,7 @@ class UserProfile:
     marketing_opt_in: bool = False
     updated_at: Optional[datetime] = None
 
+
 @dataclass
 class UserSecuritySettings:
     id: Optional[str] = None
@@ -36,6 +39,7 @@ class UserSecuritySettings:
     biometric_enabled: bool = False
     last_password_changed_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+
 
 @dataclass
 class UserSession:

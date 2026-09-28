@@ -19,6 +19,9 @@ class UserPersistenceMapper:
     def from_entity(entity: Optional[EcomUserModel]) -> Optional[DomainUser]:
         if entity is None:
             return None
+        # Fetch role slugs from the M2M junction table.
+        # Uses get_role_slugs() which performs a DB query.
+        roles = entity.get_role_slugs()
         return DomainUser(
             id=str(entity.id),
             email=entity.email,
@@ -26,7 +29,7 @@ class UserPersistenceMapper:
             first_name=entity.first_name,
             last_name=entity.last_name,
             avatar_url=entity.avatar_url,
-            role=entity.role,
+            roles=roles,
             status=entity.status,
             email_verified_at=entity.email_verified_at,
             phone_verified_at=entity.phone_verified_at,
@@ -43,7 +46,6 @@ class UserPersistenceMapper:
         model.first_name = domain.first_name
         model.last_name = domain.last_name
         model.avatar_url = domain.avatar_url
-        model.role = domain.role
         model.status = domain.status
         model.email_verified_at = domain.email_verified_at
         model.phone_verified_at = domain.phone_verified_at

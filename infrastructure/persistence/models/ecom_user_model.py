@@ -3,12 +3,6 @@ from django.db import models
 
 
 class EcomUser(models.Model):
-    USER_ROLE_CHOICES = [
-        ('customer', 'Customer'),
-        ('seller', 'Seller'),
-        ('admin', 'Admin'),
-        ('support', 'Support'),
-    ]
     USER_STATUS_CHOICES = [
         ('active', 'Active'),
         ('inactive', 'Inactive'),
@@ -23,7 +17,6 @@ class EcomUser(models.Model):
     first_name = models.CharField(max_length=150, null=True, blank=True)
     last_name = models.CharField(max_length=150, null=True, blank=True)
     avatar_url = models.TextField(null=True, blank=True)
-    role = models.CharField(max_length=20, choices=USER_ROLE_CHOICES, default='customer')
     status = models.CharField(max_length=30, choices=USER_STATUS_CHOICES, default='pending_verification')
     email_verified_at = models.DateTimeField(null=True, blank=True)
     phone_verified_at = models.DateTimeField(null=True, blank=True)
@@ -37,7 +30,6 @@ class EcomUser(models.Model):
     class Meta:
         db_table = 'users'
         indexes = [
-            models.Index(fields=['role']),
             models.Index(fields=['status']),
             models.Index(fields=['deleted_at']),
         ]
@@ -52,6 +44,12 @@ class EcomUser(models.Model):
     @property
     def full_name(self):
         return f"{self.first_name or ''} {self.last_name or ''}".strip()
+
+    def get_role_slugs(self):
+        """Return a list of role slugs assigned to this user."""
+        return list(
+            self.user_roles.select_related('role').values_list('role__slug', flat=True)
+        )
 
 
 def __getattr__(name):

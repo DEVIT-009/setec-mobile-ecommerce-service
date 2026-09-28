@@ -7,6 +7,7 @@ from domain.auth.service.auth_service import AuthServiceInterface
 from domain.auth.exception.auth_domain_exception import AuthDomainException
 from domain.user.ports.user_repository import UserRepositoryInterface
 from infrastructure.persistence.models.ecom_user_model import EcomUser, UserProfile, UserSecuritySettings, UserSession
+from infrastructure.persistence.models.role_model import Role, UserRole
 from shared.security.jwt_util import JwtUtil
 
 _reset_tokens: dict = {}
@@ -27,13 +28,18 @@ class AuthServiceFacade(AuthServiceInterface):
             first_name=first_name,
             last_name=last_name,
             phone_number=phone_number,
-            role='customer',
             status='active',
         )
         UserProfile.objects.create(user=user)
         UserSecuritySettings.objects.create(user=user)
 
-        token = self._generate_token(user)
+        # Assign the default 'customer' role via the junction table.
+        customer_role = Role.objects.filter(slug='customer').first()
+        if customer_role:
+            UserRole.objects.get_or_create(user=user, role=customer_role)
+
+        roles = user.get_role_slugs()
+        token = self._generate_token(user, roles=roles)
         return {"user_id": str(user.id), "email": user.email, "access_token": token}
 
     def login(self, email: str, password: str, request: Any = None) -> Dict[str, Any]:
@@ -59,8 +65,10 @@ class AuthServiceFacade(AuthServiceInterface):
             last_seen_at=timezone.now(),
         )
 
-        token = self._generate_token(user, session_id=str(session.id))
-        return {"access_token": token, "user_id": str(user.id), "role": user.role}
+        # Fetch roles from the junction table.
+        roles = user.get_role_slugs()
+        token = self._generate_token(user, session_id=str(session.id), roles=roles)
+        return {"access_token": token, "user_id": str(user.id), "roles": roles}
 
     def get_me(self, user_id: str) -> Dict[str, Any]:
         try:
@@ -71,6 +79,7 @@ class AuthServiceFacade(AuthServiceInterface):
         if user.status == 'blocked':
             raise AuthDomainException.account_blocked()
 
+        roles = user.get_role_slugs()
         return {
             "id": str(user.id),
             "email": user.email,
@@ -78,7 +87,7 @@ class AuthServiceFacade(AuthServiceInterface):
             "first_name": user.first_name,
             "last_name": user.last_name,
             "avatar_url": user.avatar_url,
-            "role": user.role,
+            "roles": roles,
             "status": user.status,
             "email_verified_at": user.email_verified_at.isoformat() if user.email_verified_at else None,
             "phone_verified_at": user.phone_verified_at.isoformat() if user.phone_verified_at else None,
@@ -98,7 +107,6 @@ class AuthServiceFacade(AuthServiceInterface):
         else:
             UserSession.objects.filter(user_id=user_id, revoked_at__isnull=True).update(revoked_at=timezone.now())
 
-
     def refresh(self, user_id: str, session_id: Optional[str] = None) -> Dict[str, Any]:
         try:
             user = EcomUser.objects.get(id=user_id, deleted_at__isnull=True)
@@ -106,8 +114,9 @@ class AuthServiceFacade(AuthServiceInterface):
             raise AuthDomainException.invalid_token()
         if user.status == 'blocked':
             raise AuthDomainException.account_blocked()
-        token = self._generate_token(user, session_id=session_id)
-        return {"access_token": token, "user_id": str(user.id), "role": user.role}
+        roles = user.get_role_slugs()
+        token = self._generate_token(user, session_id=session_id, roles=roles)
+        return {"access_token": token, "user_id": str(user.id), "roles": roles}
 
     def forgot_password(self, email: str) -> Dict[str, Any]:
         try:
@@ -154,8 +163,8 @@ class AuthServiceFacade(AuthServiceInterface):
         return {"phone_verified_at": user.phone_verified_at.isoformat()}
 
     @staticmethod
-    def _generate_token(user: EcomUser, session_id: Optional[str] = None) -> str:
-        return JwtUtil.generate_token_for_ecom(user, session_id)
+    def _generate_token(user: EcomUser, session_id: Optional[str] = None, roles: Optional[list] = None) -> str:
+        return JwtUtil.generate_token_for_ecom(user, session_id=session_id, roles=roles)
 
     @staticmethod
     def _get_client_ip(request):

@@ -36,3 +36,27 @@ class CategoryControllerMapper:
     def to_list_response(categories: List[Category]) -> List[Dict[str, Any]]:
         return [CategoryControllerMapper.to_response(c) for c in categories]
 
+    @staticmethod
+    def to_response_with_products(category: Category, products: List[Any]) -> Dict[str, Any]:
+        category_dict = CategoryControllerMapper.to_response(category)
+        category_dict["product"] = [
+            CategoryControllerMapper.to_category_product_item(p) for p in products
+        ]
+        return category_dict
+
+    @staticmethod
+    def to_category_product_item(product: Any) -> Dict[str, Any]:
+        return {
+            "id": str(product.id) if product.id else None,
+            "name": product.name, 
+            "slug": product.slug,
+            "base_price": str(product.base_price),
+            "currency": product.currency,
+            "rating_average": product.rating_average,
+            "rating_count": product.rating_count,
+            "sold_count": product.sold_count,
+            "compare_at_price": str(product.compare_at_price) if product.compare_at_price is not None else None,
+            "primary_image_url": product.primary_image_url,
+            "is_favorite": getattr(product, "is_favorite", False),
+        }
+

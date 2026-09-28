@@ -219,6 +219,7 @@ Public routes require **no login credentials** and are openly accessible to stor
 | `GET` | `/api/v1/public/categories/` | List active storefront categories | 🌐 Public |
 | `GET` | `/api/v1/public/categories/tree/` | Get nested category hierarchy tree | 🌐 Public |
 | `GET` | `/api/v1/public/categories/{category_id}/` | Get category details by UUID | 🌐 Public |
+| `GET` | `/api/v1/public/categories/{category_id}/products/` | Category detail + paginated products by category UUID | 🌐 Public *(🔓 Optional Auth)* |
 | `GET` | `/api/v1/public/categories/search/?slug={slug}` | Get category details by URL slug | 🌐 Public |
 | `GET` | `/api/v1/public/stores/` | List active merchant stores | 🌐 Public |
 | `GET` | `/api/v1/public/stores/{store_id}/` | Get store details by UUID | 🌐 Public |
@@ -402,6 +403,7 @@ Admin routes require a valid **Bearer JWT** AND the `"admin"` role claim (`@requ
 | `GET` | `/api/v1/public/categories/` | List active storefront categories | 🌐 Public |
 | `GET` | `/api/v1/public/categories/tree/` | Get nested category hierarchy tree | 🌐 Public |
 | `GET` | `/api/v1/public/categories/{category_id}/` | Get category details by UUID | 🌐 Public |
+| `GET` | `/api/v1/public/categories/{category_id}/products/` | Category detail + paginated products by category UUID | 🌐 Public *(🔓 Optional Auth)* |
 | `GET` | `/api/v1/public/categories/search/?slug={slug}` | Get category details by slug | 🌐 Public |
 | `GET` | `/api/v1/public/stores/` | List active stores | 🌐 Public |
 | `GET` | `/api/v1/public/stores/{store_id}/` | Get store details by UUID | 🌐 Public |
@@ -943,6 +945,88 @@ Authorization: Bearer <access_token>
 | Status | Code | Condition |
 |---|---|---|
 | `404 Not Found` | `CATEGORY_NOT_FOUND` | Category with specified slug does not exist or is deleted |
+
+---
+
+#### GET `/api/v1/public/categories/{category_id}/products/`
+**Purpose:** Get category details together with a paginated list of active products belonging to that category. Mirrors the store products endpoint pattern — returns a `SuccessEnvelope` with the category object embedded with a `product` array.  
+**Authentication:** ❌ None (Public) *(🔓 Optional Bearer token — when supplied, each product item includes the customer's `is_favorite` status)*  
+**Allowed Roles:** 🌐 Public / Authenticated Customer  
+
+**Path Parameters:**
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `category_id` | string | Yes | Category primary key (e.g. `cat-000001`) |
+
+**Query Parameters:**
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `page` | integer | No | `1` | Page number |
+| `page_size` | integer | No | `20` | Items per page (max 100) |
+
+**Headers (Optional):**
+```http
+Authorization: Bearer <access_token>
+```
+
+**Success Response (`200 OK` — `SuccessEnvelope`):**
+```json
+{
+  "data": {
+    "id": "cat-000001",
+    "name": "Electronics",
+    "slug": "electronics",
+    "parent_id": null,
+    "icon_url": "https://res.cloudinary.com/demo/image/upload/electronics_icon.png",
+    "image_url": "https://res.cloudinary.com/demo/image/upload/electronics_banner.png",
+    "sort_order": 0,
+    "status": "active",
+    "product": [
+      {
+        "id": "prod-000001",
+        "name": "Sony WH-1000XM5 Headphones",
+        "slug": "sony-wh-1000xm5",
+        "base_price": "299.99",
+        "currency": "USD",
+        "rating_average": 4.9,
+        "rating_count": 380,
+        "sold_count": 1200,
+        "compare_at_price": "349.99",
+        "primary_image_url": "https://res.cloudinary.com/demo/image/upload/sony_xm5.jpg",
+        "is_favorite": false
+      },
+      {
+        "id": "prod-000002",
+        "name": "Apple AirPods Pro (2nd Gen)",
+        "slug": "apple-airpods-pro-2nd-gen",
+        "base_price": "249.00",
+        "currency": "USD",
+        "rating_average": 4.8,
+        "rating_count": 520,
+        "sold_count": 2100,
+        "compare_at_price": null,
+        "primary_image_url": "https://res.cloudinary.com/demo/image/upload/airpods_pro2.jpg",
+        "is_favorite": true
+      }
+    ]
+  },
+  "meta": {
+    "request_id": null
+  },
+  "errors": []
+}
+```
+
+> [!NOTE]
+> The response uses a `SuccessEnvelope` (not `ListEnvelope`). Pagination is applied server-side on the `product` array, but `meta` does not include pagination counters — the caller should iterate by incrementing `page` until the `product` array is shorter than `page_size`.
+
+> [!TIP]
+> `is_favorite` is always `false` for unauthenticated requests. Supply a valid Bearer token to receive the accurate favorite status for the authenticated customer.
+
+**Error Responses:**
+| Status | Code | Condition |
+|---|---|---|
+| `404 Not Found` | `CATEGORY_NOT_FOUND` | Category with specified ID does not exist, is soft-deleted, or is inactive |
 
 ---
 
