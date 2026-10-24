@@ -55,7 +55,9 @@ class OrderPersistenceMapper:
 
         return DomainOrder(
             id=str(entity.id),
-            order_number=entity.order_number,
+            # The persistence model uses its formatted primary key
+            # (ord-YYYYMMDD-NNNN) as the public order number.
+            order_number=str(entity.id),
             user_id=str(entity.user_id) if entity.user_id else None,
             store_id=str(entity.store_id) if entity.store_id else None,
             store_name=entity.store.name if getattr(entity, 'store', None) else None,
