@@ -18,6 +18,7 @@ from .cart_item_model import CartItem
 from .order_model import Order
 from .order_item_model import OrderItem
 from .order_status_history_model import OrderStatusHistory
+from .payment_model import Payment, PaymentBatch
 from .shipment_model import Shipment
 from .shipment_event_model import ShipmentEvent
 from .favorite_model import Favorite
@@ -56,6 +57,8 @@ __all__ = [
     'Order',
     'OrderItem',
     'OrderStatusHistory',
+    'Payment',
+    'PaymentBatch',
     'Shipment',
     'ShipmentEvent',
     'Favorite',

@@ -6,6 +6,7 @@ from interface.order.serializer.response.order_response import (
     OrderSummaryResponse,
     OrderDetailResponse,
 )
+from interface.payment.serializer.mapper.payment_controller_mapper import PaymentControllerMapper
 
 
 class OrderControllerMapper:
@@ -56,7 +57,7 @@ class OrderControllerMapper:
             store={"id": order.store_id, "name": order.store_name} if order.store_id else None,
             shipping_address_id=str(order.shipping_address_id) if order.shipping_address_id else None,
             items=[OrderControllerMapper.item_to_response(i) for i in order.items],
-            payment=None,
+            payment=PaymentControllerMapper.to_response(order.payment) if order.payment else None,
             shipments=shipment_summary or [],
             status_history=[
                 {

@@ -1,84 +1,34 @@
-# Complete Order Process
+# Complete Order Flow and Implementation Status
 
-This document describes the order flow currently implemented by this service: cart preparation, checkout, order creation, order history, cancellation, admin fulfillment, and shipment tracking.
+This document separates the intended customer-to-delivery process from what the backend currently implements.
 
-The canonical URLs below come from the mounted Django routes. Customer routes use the /api/v1/customer/ prefix. Some older documentation and OpenAPI entries omit /customer/ and should not be treated as the runtime route source of truth.
+## Status legend
 
-## 1. Actors and authentication
+- ✅ **Implemented** — the route and core backend behavior exist.
+- ⚠️ **Partial** — some code exists, but the step is manual, incomplete, or unsafe for a complete production flow.
+- ❌ **Missing** — the required backend process does not exist.
+- 👤 **Customer action**
+- ⚙️ **System action**
+- 🛠️ **Admin or fulfillment action**
+- 📦 **Order status**
+- 🚚 **Shipment status**
+- 💳 **Payment status**
 
-- Customer: manages a cart, places orders, views owned orders, cancels eligible orders, and views tracking.
-- Admin: lists all orders, reads any order, and updates fulfillment status.
-- Backend: groups selected items by store, creates order snapshots, and records status changes.
+## Main order flow
 
-All routes in this document require:
+### 1. Customer browses and selects a product
 
-~~~http
-Authorization: Bearer <access_token>
-Content-Type: application/json
-~~~
+**Flag: ✅ Implemented**
 
-Admin routes also require the admin role.
+👤 The customer reads the public product catalog and selects a product or variant.
 
-Successful object/mutation responses use:
+Relevant public product routes are mounted below /api/v1/public/.
 
-~~~json
-{
-  "data": {},
-  "meta": { "request_id": null },
-  "errors": []
-}
-~~~
+This is a selection step only. Adding the product to the cart happens in the next step.
 
-List responses additionally contain page, page_size, total, and has_next in meta.
+### 2. Customer adds the product to the cart
 
-## 2. End-to-end flow
-
-~~~mermaid
-flowchart TD
-    A[Customer signs in] --> B[Select shipping address]
-    B --> C[Add products to cart]
-    C --> D[Select items and update quantities]
-    D --> E[Request checkout preview]
-    E --> F[POST customer/orders]
-    F --> G{Items from multiple stores?}
-    G -- No --> H[Create one pending order]
-    G -- Yes --> I[Create one pending order per store]
-    H --> J[Snapshot items and create pending history]
-    I --> J
-    J --> K[Mark cart checked_out]
-    K --> L[Orders appear in customer history]
-    L --> M{Next action}
-    M -- Customer cancels --> N[Status becomes cancelled]
-    M -- Admin fulfills --> O[Admin updates status]
-    O --> P[Create status-history entry]
-    P --> Q[Shipment tracking]
-    Q --> R[Delivered]
-~~~
-
-## 3. Customer checkout
-
-### Step 1: Prepare a shipping address
-
-The order request requires a shipping_address_id. Address routes are mounted under:
-
-- GET /api/v1/customer/addresses/
-- POST /api/v1/customer/addresses/
-- GET /api/v1/customer/addresses/{address_id}/
-- PATCH /api/v1/customer/addresses/{address_id}/
-- DELETE /api/v1/customer/addresses/{address_id}/
-- POST or PATCH /api/v1/customer/addresses/{address_id}/default/
-
-The frontend should require the customer to select or create an address before placing an order.
-
-### Step 2: Get or create the active cart
-
-~~~http
-GET /api/v1/customer/cart/
-~~~
-
-If the customer has no active cart, the backend creates one. The result contains the cart ID, status, active items, and totals.
-
-### Step 3: Add a product
+**Flag: ✅ Implemented**
 
 ~~~http
 POST /api/v1/customer/cart/items/
@@ -92,51 +42,54 @@ POST /api/v1/customer/cart/items/
 }
 ~~~
 
-product_variant_id is optional; quantity must be at least 1.
-
 Current behavior:
 
-- A missing product returns 404 PRODUCT_NOT_FOUND.
-- The current product or variant price is copied to unit_price_snapshot.
-- Adding the same product/variant again increases its quantity.
-- A new item is selected by default.
+- The backend creates an active cart when the customer has none.
+- Adding the same product and variant again increases its quantity.
+- The backend copies the current product or variant price into the cart item.
+- A variant must belong to the selected product.
+- New items are selected by default.
 
-### Step 4: Update selected items
+### 3. Customer updates quantity and selected items
 
-Update a quantity or selection:
+**Flag: ✅ Implemented**
 
 ~~~http
 PATCH /api/v1/customer/cart/items/{cart_item_id}/
 ~~~
 
-~~~json
-{
-  "quantity": 3,
-  "is_selected": true
-}
-~~~
-
-Remove an item:
-
-~~~http
-DELETE /api/v1/customer/cart/items/{cart_item_id}/
-~~~
-
-Select or deselect all:
+Use this route to change quantity or is_selected.
 
 ~~~http
 POST /api/v1/customer/cart/select-all/
+DELETE /api/v1/customer/cart/items/{cart_item_id}/
 ~~~
 
-~~~json
-{
-  "selected": true
-}
+Only selected, non-deleted items are included when the order is placed.
+
+### 4. Customer selects a delivery address
+
+**Flag: ⚠️ Partial**
+
+List existing addresses:
+
+~~~http
+GET /api/v1/customer/addresses/
 ~~~
 
-Only selected, non-deleted items are converted into orders.
+Create an address:
 
-### Step 5: Preview checkout
+~~~http
+POST /api/v1/customer/addresses/
+~~~
+
+The address routes work, and order placement requires shipping_address_id.
+
+Current gap: checkout assigns the address ID but does not explicitly verify that the address belongs to the authenticated customer and is still active.
+
+### 5. Customer requests checkout preview
+
+**Flag: ⚠️ Partial**
 
 ~~~http
 POST /api/v1/customer/cart/checkout-preview/
@@ -148,12 +101,10 @@ POST /api/v1/customer/cart/checkout-preview/
 }
 ~~~
 
-The response contains cart_id, shipping_address_id, and totals based on selected items.
-
-Current total calculation:
+Current calculation:
 
 ~~~text
-subtotal = sum(unit_price_snapshot * quantity)
+subtotal = sum(selected item price snapshot * quantity)
 shipping = 0.00
 discount = 0.00
 tax      = 0.00
@@ -161,185 +112,133 @@ total    = subtotal
 currency = USD
 ~~~
 
-Preview does not reserve inventory and does not create an order.
+The preview exists, but it does not calculate real shipping, discounts, promotions, or tax. It also does not reserve inventory.
 
-### Step 6: Place the order
+### 6. Customer places the order
+
+**Flag: ⚠️ Partial**
 
 ~~~http
 POST /api/v1/customer/orders/
 ~~~
 
-All three fields are currently required:
-
 ~~~json
 {
   "cart_id": "cart-000001",
   "shipping_address_id": "adr-000001",
-  "idempotency_key": "550e8400-e29b-41d4-a716-446655440000"
+  "idempotency_key": "one-key-for-this-checkout-attempt"
 }
 ~~~
 
-Frontend rules:
+Implemented system actions:
 
-- Generate one key for each new checkout attempt.
-- Reuse the same key when retrying the same request after a timeout.
-- Disable the Place Order button during the request.
-- Treat response data as an array because one checkout may create multiple orders.
+1. Find the authenticated customer's active cart.
+2. Load selected cart items.
+3. Lock selected product-variant rows.
+4. Validate that each tracked variant is active and has enough stock.
+5. Decrease ProductVariant.stock_quantity.
+6. Mark a variant out_of_stock when its quantity reaches zero.
+7. Group cart items by store.
+8. Create one order per store.
+9. Create immutable order-item snapshots.
+10. Create the first status-history record.
+11. Mark the cart checked_out.
+12. Soft-delete processed cart items.
+13. Commit stock, order, history, and cart changes in one database transaction.
 
-The backend uses a database transaction and:
+Multi-store checkout returns an array because one checkout may create several orders.
 
-1. Finds an active cart belonging to the authenticated customer.
-2. Loads selected, non-deleted items.
-3. Returns 400 CART_EMPTY if the cart is unavailable or nothing is selected.
-4. Groups items by the product's store.
-5. Creates one order per store group.
-6. Generates an ID such as ord-20261023-0001.
-7. Sets each new order to pending.
-8. Copies product name, variant name, SKU, unit price, quantity, and line total into order-item snapshots.
-9. Adds a history row from null to pending with note Order placed via cart checkout.
-10. Marks the cart checked_out.
-11. Soft-deletes the processed selected items.
-12. Commits all order and cart changes together.
+Current gaps:
 
-If items come from three stores, the response contains three independent orders.
+- idempotency_key is required but is not persisted or enforced.
+- Retrying after an uncertain response can create duplicate orders.
+- Product prices are not revalidated during order placement.
+- Products without variants are allowed but have no stock tracking.
 
-Example response shape:
+### 7. Order becomes pending
+
+**Flag: ✅ Implemented**
+
+📦 **Order status: pending**
+
+Every new order starts as pending. The backend records:
+
+~~~text
+from_status: null
+to_status: pending
+note: Order placed via cart checkout
+~~~
+
+At this point, variant stock has already been decreased. In the current simple design, that decrease acts as the inventory reservation.
+
+### 8. Customer completes payment
+
+**Flag: ✅ Implemented with an internal mock provider**
+
+Complete payment:
+
+~~~http
+POST /api/v1/customer/orders/payment/
+~~~
 
 ~~~json
 {
-  "data": [
-    {
-      "id": "ord-20261023-0001",
-      "order_number": "ord-20261023-0001",
-      "status": "pending",
-      "subtotal_amount": "90.00",
-      "shipping_amount": "0.00",
-      "discount_amount": "0.00",
-      "tax_amount": "0.00",
-      "total_amount": "90.00",
-      "currency": "USD",
-      "store": {
-        "id": "str-000001",
-        "name": "Example Store"
-      },
-      "shipping_address_id": "adr-000001",
-      "items": [],
-      "payment": null,
-      "shipments": [],
-      "status_history": [
-        {
-          "id": "ordst-000001",
-          "from_status": null,
-          "to_status": "pending",
-          "note": "Order placed via cart checkout",
-          "created_at": "2026-10-23T10:00:00+00:00"
-        }
-      ]
-    }
-  ],
-  "meta": { "request_id": null },
-  "errors": []
+  "idempotency_key": "one-key-for-this-payment-attempt",
+  "order_ids": [
+    "ord-20261024-0001",
+    "ord-20261024-0002"
+  ]
 }
 ~~~
 
-### Step 7: Start the next cart
+Use one request for every order returned by the same multi-store checkout. The order IDs must be unique, belong to the authenticated customer, be pending, and use the same currency.
 
-After checkout, the old cart is checked_out. Calling GET /api/v1/customer/cart/ again creates a new active cart.
-
-## 4. Customer order history
-
-### List the customer's orders
+Read the order payment:
 
 ~~~http
-GET /api/v1/customer/orders/?page=1&page_size=20
+GET /api/v1/customer/orders/{order_id}/payment/
 ~~~
 
-The backend limits results to the authenticated customer and sorts newest first. Use this for the My Orders screen.
+Current internal behavior:
 
-Each summary contains order ID/number, status, total, currency, store, item count, and placed time. The customer route currently has no server-side status filter.
+1. Validate that order_ids is not empty and contains no duplicates.
+2. Verify every order belongs to the authenticated customer.
+3. Lock all orders in a stable order to prevent concurrent payment completion.
+4. Return the existing payment batch when the same key and same order set are retried.
+5. Reject the key if it was previously used with a different order set.
+6. Accept the batch only when every order is pending and unpaid.
+7. Use each order's server-side total and currency; the customer cannot submit an amount.
+8. Create one payment batch for the combined total.
+9. Create one child payment record per order for cancellation and refund tracking.
+10. Immediately mark the batch and child payments succeeded.
+11. Store provider references and paid_at timestamps.
 
-### Read one order
+The older single-order endpoint remains available for compatibility:
 
 ~~~http
-GET /api/v1/customer/orders/{order_id}/
+POST /api/v1/customer/orders/{order_id}/payment/
 ~~~
 
-The backend checks that the order belongs to the authenticated customer. Use this for item snapshots, price breakdown, address ID, and status history.
+💳 **Payment status: succeeded**
 
-### Read the status timeline
+This provider moves no real money. The payment module isolates the temporary behavior so a real provider can replace it later.
 
-~~~http
-GET /api/v1/customer/orders/{order_id}/status-history/
-~~~
+### 9. System confirms the order after payment
 
-History is sorted oldest first. A history row is created when:
+**Flag: ✅ Implemented automatically by the internal payment service**
 
-- Checkout creates an order: null to pending.
-- A customer cancels: pending or confirmed to cancelled.
-- An admin changes fulfillment status: old status to new status.
+📦 **Order status: confirmed**
 
-Example:
+Successful internal payment automatically:
 
-~~~json
-{
-  "data": [
-    {
-      "id": "ordst-000001",
-      "from_status": null,
-      "to_status": "pending",
-      "note": "Order placed via cart checkout",
-      "created_at": "2026-10-23T10:00:00+00:00"
-    },
-    {
-      "id": "ordst-000002",
-      "from_status": "pending",
-      "to_status": "confirmed",
-      "note": "Order accepted",
-      "created_at": "2026-10-23T10:10:00+00:00"
-    }
-  ],
-  "meta": { "request_id": null },
-  "errors": []
-}
-~~~
+1. Changes every order in the batch from pending to confirmed.
+2. Adds an order-status-history entry to every order.
+3. Returns the succeeded batch and its per-order payment records.
+4. Includes the matching child payment in each later order-detail response.
 
-## 5. Customer cancellation
+The history note is Payment succeeded via internal payment service.
 
-~~~http
-POST /api/v1/customer/orders/{order_id}/cancel/
-~~~
-
-Cancellation succeeds only when the order belongs to the customer and its current status is pending or confirmed.
-
-On success, the backend:
-
-1. Changes status to cancelled.
-2. Sets cancelled_at.
-3. Adds a history row with note Cancelled by customer.
-4. Returns the updated order.
-
-Important errors:
-
-- Unknown/unowned order: 404 ORDER_NOT_FOUND.
-- Ineligible status: 400 ORDER_CANNOT_CANCEL.
-
-The frontend should display Cancel only for pending and confirmed, while still handling a backend rejection in case the status changed concurrently.
-
-## 6. Admin fulfillment
-
-List and filter orders:
-
-~~~http
-GET /api/v1/admin/orders/?user_id={user_id}&status={status}&store_id={store_id}&page=1&page_size=20
-~~~
-
-Read an order:
-
-~~~http
-GET /api/v1/admin/orders/{order_id}/
-~~~
-
-Change status:
+An admin can also change the status manually:
 
 ~~~http
 PATCH /api/v1/admin/orders/{order_id}/status/
@@ -347,24 +246,124 @@ PATCH /api/v1/admin/orders/{order_id}/status/
 
 ~~~json
 {
-  "status": "processing",
-  "note": "Payment verified; preparing items"
+  "status": "confirmed",
+  "note": "Order manually confirmed"
 }
 ~~~
 
-Every update records the old status, new status, admin actor, optional note, and time.
+The automatic payment route is the correct path for customer payment. A manual admin confirmation does not verify payment.
 
-Intended happy path:
+### 10. Store prepares the order
 
-~~~text
-pending -> confirmed -> processing -> shipped -> delivered
+**Flag: ✅ Implemented for admins**
+
+**Real-world purpose:** Marks that store staff are finding, checking, and preparing the ordered products.
+
+🛠️ Admin or store starts preparing products.
+📦 **Order status: processing**
+
+An admin starts preparation through the dedicated route:
+
+~~~http
+PATCH /api/v1/admin/orders/{order_id}/processing
 ~~~
 
-Alternative outcomes are cancelled, refunded, and failed. This state machine is recommended but not currently enforced by the repository.
+~~~json
+{
+  "note": "Store started preparing the products"
+}
+~~~
 
-## 7. Shipment tracking
+The backend requires the current order status to be confirmed, changes it to processing, and writes one status-history record. Repeating the route after the order is already processing returns the current order without creating duplicate history.
 
-Customer routes:
+There is still no seller-facing route, preparation task record, or detailed packing workflow.
+
+### 11. Shipment is created
+
+**Flag: ✅ Implemented for admins**
+
+**Real-world purpose:** Creates the package record that will hold the carrier, tracking number, and delivery progress.
+
+🛠️ Admin or store creates a shipment.
+🚚 **Shipment status: pending**
+
+~~~http
+POST /api/v1/admin/orders/{order_id}/shipments
+~~~
+
+~~~json
+{
+  "note": "Shipment created for fulfillment"
+}
+~~~
+
+The order must be processing. The backend creates one pending shipment and one pending shipment event. Repeating the request returns the existing shipment instead of creating another one.
+
+### 12. Products are packed
+
+**Flag: ✅ Implemented for admins**
+
+**Real-world purpose:** Marks that the products have been placed in their delivery packaging and are ready for pickup.
+
+🚚 **Shipment status: packed**
+
+~~~http
+PATCH /api/v1/admin/shipments/{shipment_id}/packed
+~~~
+
+~~~json
+{
+  "note": "Products packed and ready for pickup"
+}
+~~~
+
+The shipment must be pending. The backend changes it to packed and records a packed shipment event. Repeating the request does not create duplicate events.
+
+### 13. Package is handed to the carrier
+
+**Flag: ✅ Implemented for admins**
+
+**Real-world purpose:** Records that the store has given the package to the delivery company and tracking has started.
+
+📦 **Order status: shipped**
+🚚 **Shipment status: in_transit**
+
+~~~http
+PATCH /api/v1/admin/shipments/{shipment_id}/handoff
+~~~
+
+~~~json
+{
+  "carrier_name": "DHL Express",
+  "tracking_number": "DHL-123456",
+  "location": "Phnom Penh warehouse",
+  "note": "Package handed to carrier"
+}
+~~~
+
+The shipment must be packed and its order must be processing. The backend saves the carrier and tracking number, sets shipped_at, changes the shipment to in_transit, records an event, changes the order to shipped, and records order status history. Repeating the request does not duplicate events or history.
+
+### 14. Carrier tracking events are recorded
+
+**Flag: ✅ Implemented for admins**
+
+**Real-world purpose:** Shows where the package was scanned or moved so the customer can follow its journey.
+
+~~~http
+POST /api/v1/admin/shipments/{shipment_id}/events
+~~~
+
+~~~json
+{
+  "location": "Phnom Penh sorting center",
+  "description": "Package scanned at sorting center",
+  "event_time": "2026-10-24T14:30:00Z"
+}
+~~~
+
+The shipment must be in_transit or out_for_delivery. If event_time is omitted, the backend uses the current time. The event records the shipment's current status and does not change that status.
+
+The customer can read shipment information through:
 
 ~~~http
 GET /api/v1/customer/orders/{order_id}/shipments/
@@ -372,119 +371,250 @@ GET /api/v1/customer/shipments/{shipment_id}/
 GET /api/v1/customer/shipments/{shipment_id}/events/
 ~~~
 
-Shipment statuses defined by the model:
+The create, pack, handoff, out-for-delivery, and delivery-confirmation routes also create their own events automatically.
 
-~~~text
-pending -> packed -> in_transit -> out_for_delivery -> delivered
-~~~
+Customer shipment-detail and event routes verify ownership through the shipment's order.
 
-Exceptional outcomes are failed and returned.
+### 15. Package is out for delivery
 
-Admin routes intended for shipment management:
+**Flag: ✅ Implemented for admins**
+
+**Real-world purpose:** Marks that a courier has the package and is taking it to the customer's address that day.
+
+🚚 **Shipment status: out_for_delivery**
 
 ~~~http
-GET /api/v1/admin/shipments/
-GET /api/v1/admin/shipments/{shipment_id}/
-PATCH /api/v1/admin/shipments/{shipment_id}/
+PATCH /api/v1/admin/shipments/{shipment_id}/out-for-delivery
 ~~~
 
-Admin shipment implementation is currently incomplete; see section 10.
+~~~json
+{
+  "location": "Phnom Penh delivery hub",
+  "note": "Courier is delivering the package"
+}
+~~~
 
-## 8. Payment
+The shipment must be in_transit and its order must be shipped. The backend changes the shipment to out_for_delivery and creates an event. The order remains shipped. Repeating the request does not duplicate the event.
 
-Payment is not implemented.
+### 16. Customer receives the product
 
-- There is no payment route, model, repository, or payment workflow.
-- Order responses always contain "payment": null.
-- Checkout creates pending orders without charging the customer.
-- Shipping, discount, and tax are always zero.
+**Flag: ✅ Implemented as customer confirmation**
 
-A 201 response means an order was created; it does not mean payment succeeded. A future integration should include payment intent creation, provider confirmation/webhooks, idempotent recording, failures, refunds, and controlled payment-related order transitions.
+**Real-world purpose:** Lets the customer acknowledge that the package physically arrived and was received.
 
-## 9. Frontend orchestration checklist
+👤 The customer physically receives the product.
 
-1. Authenticate and store the access token securely.
-2. Fetch or create the active cart.
-3. Add items and let the customer select what to buy.
-4. Require a shipping address.
-5. Request checkout preview and display its totals.
-6. Generate one idempotency key for the attempt.
-7. Submit the order once and prevent double taps.
-8. Save every returned order ID.
-9. Show an order-success page listing all created orders.
-10. Refresh the customer order list.
-11. Fetch detail and status history when an order opens.
-12. Show cancellation only for pending or confirmed.
-13. Fetch shipments separately for tracking.
-14. After an uncertain timeout, never retry with a new key.
-15. On 401, follow the application's refresh/login flow.
+~~~http
+POST /api/v1/customer/shipments/{shipment_id}/confirm-delivery
+~~~
 
-## 10. Current implementation gaps and blockers
+~~~json
+{
+  "note": "Product received in good condition"
+}
+~~~
 
-These issues were found by comparing the routes, serializers, models, repositories, and integration guide.
+The shipment must belong to the customer and be out_for_delivery. This is a simple receipt confirmation; signature, photo, one-time code, and carrier webhook verification are not implemented.
 
-### Critical blockers
+### 17. Order and shipment become delivered
 
-1. Idempotency is not enforced. The field is required but ignored by the repository. A retry can create duplicate orders if the first transaction committed but its response was lost.
+**Flag: ✅ Implemented automatically after customer confirmation**
 
-2. Shipping-address ownership is not validated at checkout. The backend assigns the foreign key without explicitly confirming it belongs to the authenticated customer and is active.
+**Real-world purpose:** Closes the fulfillment process and records that the store's delivery responsibility is complete.
 
-3. Status-history authorization is incomplete. The customer service ignores user_id when loading history, so a logged-in user may be able to request another order's timeline if its ID is known.
+🚚 **Shipment status: delivered**
+📦 **Order status: delivered**
 
-4. Shipment authorization is incomplete. Shipment detail and events require login but do not verify ownership through the shipment's order.
+Customer confirmation changes the shipment to delivered, sets delivered_at, and creates a delivered event. When every active shipment for the order is delivered, the backend changes the order from shipped to delivered and writes order status history. Repeating confirmation returns the delivered shipment without duplicate events or history.
 
-### Workflow gaps
+Automatic customer notification is still not implemented.
 
-5. Admin status transitions are unrestricted; terminal orders can be moved backward.
+## Customer cancellation flow
 
-6. Status definitions disagree. The model contains paid but not failed, while the request serializer contains failed but not paid.
+### Customer requests cancellation
 
-7. Updating an order to its current status still creates a redundant history row.
+**Flag: ✅ Implemented**
 
-8. Admin shipment views call list_admin and update methods that are absent from the current shipment service/repository. No implemented shipment or shipment-event creation flow exists.
+Cancellation is allowed only while the order is pending or confirmed:
 
-9. Order detail always maps shipments to an empty array; clients must call the separate shipments route.
+~~~http
+POST /api/v1/customer/orders/{order_id}/cancel/
+~~~
 
-10. Checkout performs no stock validation, reservation, or deduction.
+Implemented actions:
 
-11. Final prices are not revalidated; order creation uses the cart's stored price snapshot.
+1. Verify the order belongs to the customer.
+2. Lock the order.
+3. Restore stock for its product variants.
+4. Change an out_of_stock variant back to active after stock is restored.
+5. Change the order status to cancelled.
+6. Set cancelled_at.
+7. Add a status-history record with note Cancelled by customer.
 
-12. There is no shipping-fee, promotion, discount, or tax engine.
+📦 **Order status: cancelled**
 
-13. The shipping address is not snapshotted. The order stores a nullable foreign key, so immutable delivery details are not preserved.
+### Cancel or refund payment
 
-14. Some documentation uses /api/v1/orders/ and UUID order IDs, while runtime uses /api/v1/customer/orders/ and ord-YYYYMMDD-NNNN identifiers.
+**Flag: ✅ Implemented for the internal mock payment**
 
-## 11. Recommended status rules
+Cancelling a confirmed order changes its child payment to refunded and records refunded_at. A batch becomes partially_refunded while another child payment remains succeeded, then refunded after every child payment is refunded. This is a logical refund only; no real funds are moved.
 
-Before production, enforce a transition map similar to:
+## Admin cancellation and failure flow
+
+**Flag: ⚠️ Partial**
+
+When an admin changes a non-cancelled/non-failed order to cancelled or failed, the backend restores variant stock once.
+
+Current concerns:
+
+- Admin status transitions are not validated.
+- An admin can move terminal orders backward to active statuses.
+- Reopening a cancelled or failed order can make later stock restoration inaccurate.
+- Repeating the same status still creates another history record.
+
+## Payment failure flow
+
+**Flag: ❌ Missing automatically / ⚠️ Manual order status exists**
+
+Intended flow:
 
 ~~~text
-pending    -> confirmed | cancelled | failed
-confirmed  -> processing | cancelled | refunded
-processing -> shipped | cancelled | refunded | failed
-shipped    -> delivered | returned
-delivered  -> refunded
-cancelled  -> terminal
-refunded   -> terminal
-failed     -> terminal
+Order: pending
+→ Payment: failed
+→ Restore stock
+→ Order: failed
 ~~~
 
-Exact transitions depend on the future payment design. Each accepted transition should be transactional, reject stale updates, write exactly one history row, and trigger any required notification or inventory action.
+The internal payment service always succeeds, so an automatic payment failure event does not exist. An admin can manually set failed, and that manual change restores variant stock.
 
-## 12. Recommended acceptance tests
+There is a status-definition mismatch:
 
-- One-store checkout creates one order and one initial history row.
-- Multi-store checkout creates one order per store atomically.
-- Empty/deselected cart returns 400 CART_EMPTY.
-- A customer cannot use another customer's cart or address.
-- Reusing an idempotency key returns the original result.
-- A failure during creation rolls back all orders and cart changes.
-- Customer list, detail, history, and shipment routes enforce ownership.
-- Cancellation works only for allowed statuses and records one history row.
-- Invalid admin transitions are rejected.
-- Inventory is reserved or deducted exactly once.
-- Payment success, failure, timeout, refund, and webhook replay are idempotent.
-- Shipment creation and checkpoints are visible only to the owning customer.
-- Order item and address snapshots remain unchanged after later edits.
+- The Order model defines paid but not failed.
+- The admin request serializer accepts failed but not paid.
+- These definitions need one shared status list.
+
+## Inventory flow
+
+**Flag: ✅ Implemented as a simple variant-stock design**
+
+The project intentionally uses ProductVariant.stock_quantity without a separate inventory feature.
+
+Checkout behavior:
+
+~~~text
+Lock variant rows
+→ Add requested quantities per variant
+→ Validate active status and available quantity
+→ Decrease stock
+→ Mark out_of_stock when quantity becomes zero
+~~~
+
+Failure response:
+
+~~~text
+HTTP 409
+code: INSUFFICIENT_STOCK
+product_variant_id: affected variant
+requested_quantity: requested units
+available_quantity: available units
+~~~
+
+Restoration behavior:
+
+- Customer cancellation restores variant stock.
+- Admin cancellation restores variant stock once.
+- Admin failed status restores variant stock once.
+- A restored out_of_stock variant becomes active unless it was deleted.
+
+Current limitations:
+
+- Products without a variant are not stock-tracked.
+- Pending orders have no expiration time.
+- An abandoned pending order continues holding deducted stock.
+- There is no stock movement ledger or audit history.
+- Refunds and returns do not automatically add stock.
+- Admin status transitions can still create stock inconsistencies.
+
+## Customer order-history flow
+
+### List orders
+
+**Flag: ✅ Implemented**
+
+~~~http
+GET /api/v1/customer/orders/?page=1&page_size=20
+~~~
+
+Returns only the authenticated customer's orders, newest first.
+
+### Read order details
+
+**Flag: ✅ Implemented**
+
+~~~http
+GET /api/v1/customer/orders/{order_id}/
+~~~
+
+The route checks customer ownership.
+
+### Read status history
+
+**Flag: ⚠️ Partial**
+
+~~~http
+GET /api/v1/customer/orders/{order_id}/status-history/
+~~~
+
+The chronological history is implemented, but the repository lookup does not currently filter by the authenticated customer. A logged-in customer who knows another order ID may be able to read that timeline.
+
+### Read order shipments
+
+**Flag: ✅ Implemented**
+
+~~~http
+GET /api/v1/customer/orders/{order_id}/shipments/
+~~~
+
+This route verifies order ownership and returns the shipment created by the admin fulfillment flow.
+
+## Current end-to-end boundary
+
+The currently working business flow is:
+
+~~~text
+✅ Product selection
+→ ✅ Cart management
+→ ⚠️ Address selection
+→ ⚠️ Checkout preview
+→ ⚠️ Place order
+→ ✅ Stock decrease
+→ ✅ Order pending
+→ ✅ Internal payment succeeded
+→ ✅ Order confirmed
+→ ✅ Order processing
+→ ✅ Shipment pending
+→ ✅ Shipment packed
+→ ✅ Carrier handoff
+→ ✅ Shipment in transit
+→ ✅ Order shipped
+→ ✅ Carrier checkpoints
+→ ✅ Shipment out for delivery
+→ ✅ Customer confirms receipt
+→ ✅ Shipment delivered
+→ ✅ Order delivered
+~~~
+
+The simple internal customer-to-delivery flow is now implemented through delivered. Real payment, carrier integration, proof of delivery, and automatic notifications remain future work.
+
+## Recommended implementation order
+
+1. Validate shipping-address ownership during checkout.
+2. Persist and enforce idempotency keys.
+3. Define one order-status enum and allowed transition map.
+4. Add pending-order expiration and stock restoration.
+5. Replace internal_mock with a real payment provider and webhook processing.
+6. Add real payment failure and retry behavior.
+7. Add signature, photo, or one-time-code proof of delivery if required.
+8. Add automatic customer notifications.
+9. Secure the direct order status-history route by customer ownership.
 

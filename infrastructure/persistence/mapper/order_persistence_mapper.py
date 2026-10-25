@@ -6,6 +6,8 @@ from infrastructure.persistence.models.order_model import (
     OrderItem as OrderItemModel,
     OrderStatusHistory as OrderStatusHistoryModel,
 )
+from infrastructure.persistence.mapper.payment_persistence_mapper import PaymentPersistenceMapper
+from infrastructure.persistence.models.payment_model import Payment as PaymentModel
 
 
 class OrderPersistenceMapper:
@@ -53,6 +55,10 @@ class OrderPersistenceMapper:
         if hasattr(entity, 'status_history'):
             status_history = [OrderPersistenceMapper.status_entry_from_entity(sh) for sh in entity.status_history.all() if sh is not None]
 
+        payment = PaymentPersistenceMapper.from_entity(
+            PaymentModel.objects.filter(order_id=entity.id).first()
+        )
+
         return DomainOrder(
             id=str(entity.id),
             # The persistence model uses its formatted primary key
@@ -73,7 +79,7 @@ class OrderPersistenceMapper:
             cancelled_at=entity.cancelled_at,
             items=items,
             status_history=status_history,
-            payment=None,
+            payment=payment,
             created_at=entity.created_at,
             updated_at=entity.updated_at,
             deleted_at=entity.deleted_at,

@@ -930,6 +930,84 @@ paths:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
 
+  /orders/payment/:
+    post:
+      summary: Complete one internal mock payment for multiple pending orders
+      description: Creates one payment batch, creates one child payment per order, and confirms all orders atomically. No real funds are moved.
+      tags: [Orders, Payments]
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [idempotency_key, order_ids]
+              properties:
+                idempotency_key: { type: string, maxLength: 128 }
+                order_ids:
+                  type: array
+                  minItems: 1
+                  maxItems: 100
+                  uniqueItems: true
+                  items: { type: string, example: "ord-20261024-0001" }
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        404:
+          description: One or more orders were not found for the customer
+        409:
+          description: An order is not payable, currencies differ, or the idempotency key conflicts
+
+  /orders/{order_id}/payment/:
+    get:
+      summary: Get the current user's internal payment for an order
+      tags: [Orders, Payments]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: order_id
+          required: true
+          schema: { type: string, example: "ord-20261024-0001" }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        404:
+          description: Order or payment not found
+    post:
+      summary: Complete internal mock payment and confirm a pending order
+      description: Temporary internal payment logic; no real funds are moved.
+      tags: [Orders, Payments]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: order_id
+          required: true
+          schema: { type: string, example: "ord-20261024-0001" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [idempotency_key]
+              properties:
+                idempotency_key: { type: string, maxLength: 128 }
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        409:
+          description: Order is not payable or idempotency key conflicts
+
   /orders/{order_id}/cancel/:
     post:
       summary: Cancel a pending order
@@ -981,6 +1059,174 @@ paths:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
 
+  /admin/orders/{order_id}/processing:
+    patch:
+      summary: Start preparing a confirmed order
+      tags: [Admin, Orders]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: order_id
+          required: true
+          schema: { type: string, example: "ord-20261024-0001" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [note]
+              properties:
+                note: { type: string, maxLength: 1000, example: "Store started preparing the products" }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        409:
+          description: Order is not confirmed and cannot transition to processing
+
+  /admin/orders/{order_id}/shipments:
+    post:
+      summary: Create a pending shipment for a processing order
+      tags: [Admin, Shipments]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: order_id
+          required: true
+          schema: { type: string, example: "ord-20261024-0001" }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note: { type: string, maxLength: 1000 }
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        409:
+          description: Order is not processing
+
+  /admin/shipments/{shipment_id}/packed:
+    patch:
+      summary: Mark a pending shipment packed
+      tags: [Admin, Shipments]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: shipment_id
+          required: true
+          schema: { type: string, example: "ship-000001" }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note: { type: string, maxLength: 1000 }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        409:
+          description: Shipment is not pending
+
+  /admin/shipments/{shipment_id}/handoff:
+    patch:
+      summary: Hand a packed shipment to the carrier and ship its order
+      tags: [Admin, Shipments]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: shipment_id
+          required: true
+          schema: { type: string, example: "ship-000001" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [carrier_name, tracking_number]
+              properties:
+                carrier_name: { type: string, maxLength: 100 }
+                tracking_number: { type: string, maxLength: 100 }
+                location: { type: string, maxLength: 255 }
+                note: { type: string, maxLength: 1000 }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        409:
+          description: Shipment is not packed or order is not processing
+
+  /admin/shipments/{shipment_id}/events:
+    post:
+      summary: Record a carrier tracking checkpoint
+      tags: [Admin, Shipments]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: shipment_id
+          required: true
+          schema: { type: string, example: "ship-000001" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [description]
+              properties:
+                location: { type: string, maxLength: 255 }
+                description: { type: string, maxLength: 1000 }
+                event_time: { type: string, format: date-time }
+      responses:
+        201:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        409:
+          description: Shipment is not in transit or out for delivery
+
+  /admin/shipments/{shipment_id}/out-for-delivery:
+    patch:
+      summary: Mark an in-transit shipment out for delivery
+      tags: [Admin, Shipments]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: shipment_id
+          required: true
+          schema: { type: string, example: "ship-000001" }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                location: { type: string, maxLength: 255 }
+                note: { type: string, maxLength: 1000 }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        409:
+          description: Shipment is not in transit or order is not shipped
+
   # ---------------------------------------------------------------------------
   # SHIPMENTS
   # ---------------------------------------------------------------------------
@@ -1017,6 +1263,34 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SuccessEnvelope'
+
+  /shipments/{shipment_id}/confirm-delivery:
+    post:
+      summary: Confirm customer receipt and complete delivery
+      tags: [Shipments]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: shipment_id
+          required: true
+          schema: { type: string, example: "ship-000001" }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note: { type: string, maxLength: 1000 }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        404:
+          description: Shipment not found for the authenticated customer
+        409:
+          description: Shipment is not out for delivery or order is not shipped
 
   # ---------------------------------------------------------------------------
   # FAVORITES & SEARCH HISTORY

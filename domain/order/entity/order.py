@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional, List
+from typing import Any, Optional, List
 from decimal import Decimal
 
 @dataclass
@@ -44,7 +44,7 @@ class Order:
     cancelled_at: Optional[datetime] = None
     items: List[OrderItem] = field(default_factory=list)
     status_history: List[OrderStatusEntry] = field(default_factory=list)
-    payment: None = None
+    payment: Optional[Any] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     deleted_at: Optional[datetime] = None

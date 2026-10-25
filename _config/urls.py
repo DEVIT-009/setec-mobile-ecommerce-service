@@ -20,6 +20,7 @@ urlpatterns = [
     path('api/v1/public/', include('interface.review.url.review_url')),
 
     path('api/v1/customer/addresses/', include('interface.address.url.address_url')),
+    path('api/v1/customer/orders/', include('interface.payment.url.payment_url')),
     path('api/v1/customer/orders/', include('interface.order.url.order_url')),
     path('api/v1/customer/shipments/', include('interface.shipment.url.shipment_url')),
     path('api/v1/customer/search-history/', include('interface.search_history.url.search_history_url')),

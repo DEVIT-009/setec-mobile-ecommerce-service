@@ -17,3 +17,11 @@ class CartException(BaseAPIException):
     @classmethod
     def product_not_found(cls):
         return cls.create(status.HTTP_404_NOT_FOUND, "Product not found", "PRODUCT_NOT_FOUND")
+
+    @classmethod
+    def invalid_variant(cls):
+        return cls.create(
+            status.HTTP_400_BAD_REQUEST,
+            "Product variant does not belong to the selected product",
+            "INVALID_PRODUCT_VARIANT",
+        )

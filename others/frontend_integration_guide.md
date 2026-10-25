@@ -282,11 +282,15 @@ Customer routes require a valid **Bearer JWT** in the `Authorization` header (`@
 | `GET` | `/api/v1/orders/` | List customer order history | 🔐 `customer` |
 | `POST` | `/api/v1/orders/` | Place orders from selected cart items | 🔐 `customer` |
 | `GET` | `/api/v1/orders/{order_id}/` | Get order details & purchased items | 🔐 `customer` |
+| `POST` | `/api/v1/orders/payment/` | Pay and confirm multiple orders in one request | 🔐 `customer` |
+| `POST` | `/api/v1/orders/{order_id}/payment/` | Complete internal mock payment and confirm order | 🔐 `customer` |
+| `GET` | `/api/v1/orders/{order_id}/payment/` | Get payment for owned order | 🔐 `customer` |
 | `POST` | `/api/v1/orders/{order_id}/cancel/` | Cancel customer pending order | 🔐 `customer` |
 | `GET` | `/api/v1/orders/{order_id}/status-history/` | View order status progression timeline | 🔐 `customer` |
 | `GET` | `/api/v1/orders/{order_id}/shipments/` | View shipments linked to order | 🔐 `customer` |
 | `GET` | `/api/v1/shipments/{shipment_id}/` | Get shipment tracking info | 🔐 `customer`, `admin` |
 | `GET` | `/api/v1/shipments/{shipment_id}/events/` | View checkpoint tracking events | 🔐 `customer`, `admin` |
+| `POST` | `/api/v1/shipments/{shipment_id}/confirm-delivery` | Confirm receipt and complete delivery | 🔐 `customer` |
 | `GET` | `/api/v1/favorites/` | List customer wishlist items | 🔐 `customer` |
 | `POST` | `/api/v1/favorites/` | Add product to wishlist | 🔐 `customer` |
 | `DELETE` | `/api/v1/favorites/{product_id}/` | Remove product from wishlist | 🔐 `customer` |
@@ -368,10 +372,16 @@ Admin routes require a valid **Bearer JWT** AND the `"admin"` role claim (`@requ
 | `DELETE` | `/api/v1/admin/tags/{tag_id}/` | Soft-delete tag | 👑 `admin` |
 | `GET` | `/api/v1/admin/orders/` | List all platform orders with filters | 👑 `admin` |
 | `GET` | `/api/v1/admin/orders/{order_id}/` | Get full order details | 👑 `admin` |
+| `PATCH` | `/api/v1/admin/orders/{order_id}/processing` | Start preparing a confirmed order | 👑 `admin` |
 | `PATCH` | `/api/v1/admin/orders/{order_id}/status/` | Update order fulfillment status | 👑 `admin` |
+| `POST` | `/api/v1/admin/orders/{order_id}/shipments` | Create pending shipment for processing order | 👑 `admin` |
 | `GET` | `/api/v1/admin/shipments/` | List all shipments across stores | 👑 `admin` |
 | `GET` | `/api/v1/admin/shipments/{shipment_id}/` | Get shipment details | 👑 `admin` |
-| `PATCH` | `/api/v1/admin/shipments/{shipment_id}/` | Update tracking number / carrier / status | 👑 `admin` |
+| `PATCH` | `/api/v1/admin/shipments/{shipment_id}/` | Update tracking number or carrier | 👑 `admin` |
+| `PATCH` | `/api/v1/admin/shipments/{shipment_id}/packed` | Mark pending shipment packed | 👑 `admin` |
+| `PATCH` | `/api/v1/admin/shipments/{shipment_id}/handoff` | Hand package to carrier and ship order | 👑 `admin` |
+| `POST` | `/api/v1/admin/shipments/{shipment_id}/events` | Record carrier tracking checkpoint | 👑 `admin` |
+| `PATCH` | `/api/v1/admin/shipments/{shipment_id}/out-for-delivery` | Mark shipment out for delivery | 👑 `admin` |
 | `GET` | `/api/v1/admin/reviews/` | List all customer reviews (all statuses) | 👑 `admin` |
 | `GET` | `/api/v1/admin/reviews/{review_id}/` | Get review details | 👑 `admin` |
 | `PATCH` | `/api/v1/admin/reviews/{review_id}/` | Moderate review (approve/hide/flag) | 👑 `admin` |
@@ -473,11 +483,15 @@ Admin routes require a valid **Bearer JWT** AND the `"admin"` role claim (`@requ
 | `GET` | `/api/v1/orders/` | List customer orders | 🔐 `customer` |
 | `POST` | `/api/v1/orders/` | Place orders from selected cart items | 🔐 `customer` |
 | `GET` | `/api/v1/orders/{order_id}/` | Get full order details & items | 🔐 `customer` |
+| `POST` | `/api/v1/orders/payment/` | Pay and confirm multiple orders in one request | 🔐 `customer` |
+| `POST` | `/api/v1/orders/{order_id}/payment/` | Complete internal mock payment and confirm order | 🔐 `customer` |
+| `GET` | `/api/v1/orders/{order_id}/payment/` | Get payment for owned order | 🔐 `customer` |
 | `POST` | `/api/v1/orders/{order_id}/cancel/` | Cancel pending customer order | 🔐 `customer` |
 | `GET` | `/api/v1/orders/{order_id}/status-history/` | Get status transition timeline | 🔐 `customer` |
 | `GET` | `/api/v1/orders/{order_id}/shipments/` | Get shipments linked to order | 🔐 `customer` |
 | `GET` | `/api/v1/shipments/{shipment_id}/` | Get shipment tracking info | 🔐 `customer`, `admin` |
 | `GET` | `/api/v1/shipments/{shipment_id}/events/` | Get tracking checkpoint events | 🔐 `customer`, `admin` |
+| `POST` | `/api/v1/shipments/{shipment_id}/confirm-delivery` | Confirm receipt and complete delivery | 🔐 `customer` |
 | `GET` | `/api/v1/conversations/` | List customer chat conversations | 🔐 `customer`, `admin` |
 | `POST` | `/api/v1/conversations/` | Start chat with store or support | 🔐 `customer` |
 | `GET` | `/api/v1/conversations/{conversation_id}/` | Get conversation details | 🔐 `customer`, `admin` |
@@ -2859,7 +2873,113 @@ Content-Type: application/json
 **Path Parameters:**
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `order_id` | UUID | Yes | Order UUID |
+| `order_id` | string | Yes | Formatted order ID, for example `ord-20261024-0001` |
+
+---
+
+#### POST `/api/v1/customer/orders/payment/`
+**Purpose:** Complete one internal mock payment attempt for multiple pending orders, such as the orders returned by a multi-store checkout.
+**Authentication:** 🔐 Required
+**Allowed Roles:** `customer`
+
+**Request Body:**
+```json
+{
+  "idempotency_key": "uuid-payment-attempt-12345",
+  "order_ids": [
+    "ord-20261024-0001",
+    "ord-20261024-0002"
+  ]
+}
+```
+
+**Success Response (`201 Created`):**
+```json
+{
+  "data": {
+    "id": "pbat-000001",
+    "status": "succeeded",
+    "total_amount": "140.00",
+    "currency": "USD",
+    "provider": "internal_mock",
+    "provider_reference": "internal-pbat-000001",
+    "order_ids": [
+      "ord-20261024-0001",
+      "ord-20261024-0002"
+    ],
+    "payments": [
+      {
+        "id": "pay-000001",
+        "order_id": "ord-20261024-0001",
+        "batch_id": "pbat-000001",
+        "status": "succeeded",
+        "amount": "90.00",
+        "currency": "USD"
+      },
+      {
+        "id": "pay-000002",
+        "order_id": "ord-20261024-0002",
+        "batch_id": "pbat-000001",
+        "status": "succeeded",
+        "amount": "50.00",
+        "currency": "USD"
+      }
+    ],
+    "paid_at": "2026-10-24T10:00:00Z",
+    "refunded_at": null
+  },
+  "meta": { "request_id": null },
+  "errors": []
+}
+```
+
+All order IDs must be unique, owned by the customer, pending, unpaid, and use the same currency. The operation is atomic: if any order fails validation, no payments are created and no orders are confirmed.
+
+---
+
+#### POST `/api/v1/customer/orders/{order_id}/payment/`
+**Purpose:** Complete the temporary internal payment and automatically confirm a pending order. No real funds are moved.
+**Authentication:** 🔐 Required
+**Allowed Roles:** `customer`
+
+**Request Body:**
+```json
+{
+  "idempotency_key": "uuid-payment-attempt-12345"
+}
+```
+
+**Success Response (`201 Created`):**
+```json
+{
+  "data": {
+    "id": "pay-000001",
+    "order_id": "ord-20261024-0001",
+    "batch_id": null,
+    "status": "succeeded",
+    "amount": "90.00",
+    "currency": "USD",
+    "provider": "internal_mock",
+    "provider_reference": "internal-pay-000001",
+    "failure_reason": null,
+    "paid_at": "2026-10-24T10:00:00Z",
+    "refunded_at": null
+  },
+  "meta": { "request_id": null },
+  "errors": []
+}
+```
+
+The backend uses the order's stored total, creates one idempotent payment, changes the order from `pending` to `confirmed`, and adds a status-history entry.
+
+---
+
+#### GET `/api/v1/customer/orders/{order_id}/payment/`
+**Purpose:** Retrieve the payment belonging to the customer's order.
+**Authentication:** 🔐 Required
+**Allowed Roles:** `customer`
+
+**Success Response (`200 OK`):** Returns the payment object shown above.
 
 ---
 
@@ -2916,14 +3036,14 @@ Content-Type: application/json
 **Path Parameters:**
 | Parameter | Type | Required | Description |
 |---|---|---|---|
-| `shipment_id` | UUID | Yes | Shipment UUID |
+| `shipment_id` | string | Yes | Formatted shipment ID, for example `ship-000001` |
 
 **Success Response (`200 OK`):**
 ```json
 {
   "data": {
-    "id": "ship-uuid-1",
-    "order_id": "e6727282-5a21-4f18-b218-c2b5ec28b6d1",
+    "id": "ship-000001",
+    "order_id": "ord-20261024-0001",
     "carrier_name": "J&T Express",
     "tracking_number": "JT8855220011",
     "status": "in_transit",
@@ -2947,8 +3067,8 @@ Content-Type: application/json
 {
   "data": [
     {
-      "id": "event-1",
-      "status": "picked_up",
+      "id": "shpev-000001",
+      "status": "in_transit",
       "location": "Phnom Penh Hub",
       "description": "Package picked up by courier",
       "event_time": "2026-08-31T18:30:00Z"
@@ -2958,6 +3078,21 @@ Content-Type: application/json
   "errors": []
 }
 ```
+
+---
+
+#### POST `/api/v1/customer/shipments/{shipment_id}/confirm-delivery`
+**Purpose:** Let the owning customer confirm receipt of an out-for-delivery shipment.
+**Authentication:** 🔐 Required
+**Allowed Roles:** `customer`
+
+```json
+{
+  "note": "Product received in good condition"
+}
+```
+
+The backend changes the shipment to `delivered`, sets `delivered_at`, records a delivered event, and changes the order to `delivered` after all its active shipments are delivered. Repeating the request does not duplicate events or order history.
 
 ---
 
@@ -4633,6 +4768,22 @@ Authorization: Bearer <admin_token>
 
 ---
 
+#### PATCH `/api/v1/admin/orders/{order_id}/processing`
+**Purpose:** Start store preparation for a confirmed order and change its status to `processing`.
+**Authentication:** 🔐 Required
+**Allowed Roles:** `admin`
+
+**Request Body:**
+```json
+{
+  "note": "Store started preparing the products"
+}
+```
+
+The route accepts only a `confirmed` order. Calling it again when the order is already `processing` returns the current order without creating another history entry. Other source statuses return `409 ORDER_INVALID_STATUS_TRANSITION`.
+
+---
+
 #### PATCH `/api/v1/admin/orders/{order_id}/status/`
 **Purpose:** Transition order fulfillment status and log audit history note.  
 **Authentication:** 🔐 Required  
@@ -4669,6 +4820,21 @@ Authorization: Bearer <admin_token>
 
 ### 9.6 Admin Shipments & Tracking Management
 
+#### POST `/api/v1/admin/orders/{order_id}/shipments`
+**Purpose:** Create the single pending shipment for an order currently in `processing`.
+**Authentication:** 🔐 Required
+**Allowed Roles:** `admin`
+
+```json
+{
+  "note": "Shipment created for fulfillment"
+}
+```
+
+Returns `201 Created`. Repeating the request returns the existing shipment rather than creating a duplicate.
+
+---
+
 #### GET `/api/v1/admin/shipments/`
 **Purpose:** List all active and fulfilled shipments across stores.  
 **Authentication:** 🔐 Required  
@@ -4684,17 +4850,82 @@ Authorization: Bearer <admin_token>
 ---
 
 #### PATCH `/api/v1/admin/shipments/{shipment_id}/`
-**Purpose:** Update shipment tracking number, carrier name, or shipping progress.  
+**Purpose:** Correct the shipment tracking number or carrier name without changing shipment status.
 **Authentication:** 🔐 Required  
 **Allowed Roles:** `admin`  
 
 ```json
 {
   "tracking_number": "DHL-8899221144",
-  "carrier": "DHL Express",
-  "status": "in_transit"
+  "carrier_name": "DHL Express"
 }
 ```
+
+---
+
+#### PATCH `/api/v1/admin/shipments/{shipment_id}/packed`
+**Purpose:** Change a pending shipment to `packed` and create a packed tracking event.
+**Authentication:** 🔐 Required
+**Allowed Roles:** `admin`
+
+```json
+{
+  "note": "Products packed and ready for pickup"
+}
+```
+
+Repeating this route when already packed returns the shipment without adding another event.
+
+---
+
+#### PATCH `/api/v1/admin/shipments/{shipment_id}/handoff`
+**Purpose:** Hand a packed shipment to its carrier, change it to `in_transit`, and change its processing order to `shipped`.
+**Authentication:** 🔐 Required
+**Allowed Roles:** `admin`
+
+```json
+{
+  "carrier_name": "DHL Express",
+  "tracking_number": "DHL-8899221144",
+  "location": "Phnom Penh warehouse",
+  "note": "Package handed to carrier"
+}
+```
+
+The backend sets `shipped_at`, creates an `in_transit` event, and writes the order's `processing → shipped` history entry.
+
+---
+
+#### POST `/api/v1/admin/shipments/{shipment_id}/events`
+**Purpose:** Record a carrier checkpoint without changing shipment status.
+**Authentication:** 🔐 Required
+**Allowed Roles:** `admin`
+
+```json
+{
+  "location": "Phnom Penh sorting center",
+  "description": "Package scanned at sorting center",
+  "event_time": "2026-10-24T14:30:00Z"
+}
+```
+
+The shipment must be `in_transit` or `out_for_delivery`. The server uses the current time when `event_time` is omitted.
+
+---
+
+#### PATCH `/api/v1/admin/shipments/{shipment_id}/out-for-delivery`
+**Purpose:** Move an in-transit shipment to `out_for_delivery` and record the checkpoint.
+**Authentication:** 🔐 Required
+**Allowed Roles:** `admin`
+
+```json
+{
+  "location": "Phnom Penh delivery hub",
+  "note": "Courier is delivering the package"
+}
+```
+
+The linked order must be `shipped`. Repeating the request returns the current shipment without adding another event.
 
 ---
 

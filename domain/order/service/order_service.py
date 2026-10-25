@@ -29,3 +29,7 @@ class OrderServiceInterface(ABC):
     @abstractmethod
     def update_status(self, order_id: str, status: str, changed_by_user_id: str, note: Optional[str] = None) -> Dict[str, Any]:
         pass
+
+    @abstractmethod
+    def mark_processing(self, order_id: str, changed_by_user_id: str, note: str) -> Dict[str, Any]:
+        pass

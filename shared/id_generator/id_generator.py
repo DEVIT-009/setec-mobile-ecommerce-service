@@ -2,7 +2,7 @@
 Atomic, concurrent-safe ID generator for eCommerce entities.
 
 Global sequences:  prod-, vrn-, opt-, pimg-, tag-, cat-, str-, cart-, citm-,
-                   oitm-, ordst-, adr-, ship-, shpev-, rvw-, conv-, msg-,
+                   oitm-, ordst-, pay-, pbat-, adr-, ship-, shpev-, rvw-, conv-, msg-,
                    tck-, tmsg-, ntf-, lacc-
 
 Daily sequence:    ord-YYYYMMDD-  (resets each calendar day)
@@ -30,6 +30,8 @@ GLOBAL_PREFIXES: dict[str, str] = {
     "cart_item":        "citm",
     "order_item":       "oitm",
     "order_status_log": "ordst",
+    "payment":          "pay",
+    "payment_batch":    "pbat",
     "address":          "adr",
     "shipment":         "ship",
     "shipment_event":   "shpev",
@@ -157,6 +159,12 @@ def generate_order_item_id() -> str:
 
 def generate_order_status_log_id() -> str:
     return _next_global("order_status_log")
+
+def generate_payment_id() -> str:
+    return _next_global("payment")
+
+def generate_payment_batch_id() -> str:
+    return _next_global("payment_batch")
 
 def generate_address_id() -> str:
     return _next_global("address")

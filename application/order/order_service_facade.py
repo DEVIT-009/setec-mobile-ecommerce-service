@@ -49,3 +49,7 @@ class OrderServiceFacade(OrderServiceInterface):
     def update_status(self, order_id: str, status: str, changed_by_user_id: str, note: Optional[str] = None) -> Dict[str, Any]:
         order = self.repo.update_status(order_id, status, changed_by_user_id, note)
         return OrderControllerMapper.to_detail_response(order)
+
+    def mark_processing(self, order_id: str, changed_by_user_id: str, note: str) -> Dict[str, Any]:
+        order = self.repo.mark_processing(order_id, changed_by_user_id, note)
+        return OrderControllerMapper.to_detail_response(order)

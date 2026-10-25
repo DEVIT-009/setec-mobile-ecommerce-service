@@ -44,7 +44,9 @@ class CartServiceFacade(CartServiceInterface):
         unit_price = Decimal(str(product.base_price))
         if variant_id:
             variant = next((v for v in product.variants if v.id == variant_id), None)
-            if variant and variant.price is not None:
+            if not variant:
+                raise CartException.invalid_variant()
+            if variant.price is not None:
                 unit_price = Decimal(str(variant.price))
 
         new_item = CartItem(

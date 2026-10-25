@@ -17,3 +17,5 @@ class OrderRepositoryInterface(ABC):
     def list_admin(self, filters: dict, page: int, page_size: int) -> Tuple[List[Order], int]: pass
     @abstractmethod
     def update_status(self, order_id: str, status: str, changed_by_user_id: str, note: Optional[str] = None) -> Order: pass
+    @abstractmethod
+    def mark_processing(self, order_id: str, changed_by_user_id: str, note: str) -> Order: pass

@@ -16,7 +16,11 @@ from infrastructure.persistence.models.store_model import Store
 from infrastructure.persistence.models.category_model import Category
 from infrastructure.persistence.models.product_model import Product, ProductImage, ProductVariant
 from infrastructure.persistence.models.cart_model import Cart, CartItem
-from infrastructure.persistence.models.order_model import Order, OrderItem
+from infrastructure.persistence.models.order_model import Order, OrderItem, OrderStatusHistory
+from infrastructure.persistence.models.payment_model import PaymentBatch
+from infrastructure.persistence.models.shipment_model import Shipment, ShipmentEvent
+from domain.order.exception.order_exception import OrderException
+from domain.shipment.exception.shipment_exception import ShipmentException
 from domain.review.exception.review_exception import ReviewException
 from domain.address.exception.address_exception import AddressException
 from shared.security.jwt_util import JwtUtil
@@ -25,6 +29,8 @@ from application.category.factory.category_service_factory import category_servi
 from application.product.factory.product_service_factory import product_service_factory
 from application.cart.factory.cart_service_factory import cart_service_factory
 from application.order.factory.order_service_factory import order_service_factory
+from application.payment.factory.payment_service_factory import payment_service_factory
+from application.shipment.factory.shipment_service_factory import shipment_service_factory
 from application.user.factory.user_service_factory import user_service_factory
 from application.address.factory.address_service_factory import address_service_factory
 from application.store.factory.store_service_factory import store_service_factory
@@ -41,14 +47,12 @@ class HexagonalArchitectureTestSuite(TestCase):
             password_hash=make_password("Password123!"),
             first_name="John",
             last_name="Doe",
-            role="customer",
             status="active",
         )
         self.seller = EcomUser.objects.create(
             email="seller@example.com",
             first_name="Jane",
             last_name="StoreOwner",
-            role="seller",
             status="active",
         )
         self.store = Store.objects.create(
@@ -141,10 +145,379 @@ class HexagonalArchitectureTestSuite(TestCase):
         self.assertEqual(placed_order["status"], "pending")
         self.assertEqual(Decimal(placed_order["total_amount"]), Decimal("199.98"))
         self.assertEqual(len(placed_order["items"]), 1)
+        self.variant.refresh_from_db()
+        self.assertEqual(self.variant.stock_quantity, 48)
 
         # Cart should now be empty of active items
         refreshed_cart = cart_service.get_or_create_cart(str(self.user.id))
         self.assertEqual(len(refreshed_cart["items"]), 0)
+
+        order_service.cancel(placed_order["id"], str(self.user.id))
+        self.variant.refresh_from_db()
+        self.assertEqual(self.variant.stock_quantity, 50)
+
+    def test_checkout_rejects_insufficient_variant_stock(self):
+        cart_service = cart_service_factory()
+        cart_data = cart_service.add_item(str(self.user.id), {
+            "product_id": str(self.product.id),
+            "product_variant_id": str(self.variant.id),
+            "quantity": 51,
+        })
+
+        order_service = order_service_factory()
+        with self.assertRaises(OrderException) as context:
+            order_service.place_orders(
+                user_id=str(self.user.id),
+                cart_id=cart_data["id"],
+                shipping_address_id=str(self.address.id),
+                idempotency_key="TEST-INSUFFICIENT-STOCK",
+            )
+
+        self.assertEqual(context.exception.error_code, "INSUFFICIENT_STOCK")
+        self.variant.refresh_from_db()
+        self.assertEqual(self.variant.stock_quantity, 50)
+
+    def test_admin_cancellation_restores_variant_stock_once(self):
+        cart_service = cart_service_factory()
+        cart_data = cart_service.add_item(str(self.user.id), {
+            "product_id": str(self.product.id),
+            "product_variant_id": str(self.variant.id),
+            "quantity": 3,
+        })
+
+        order_service = order_service_factory()
+        placed_order = order_service.place_orders(
+            user_id=str(self.user.id),
+            cart_id=cart_data["id"],
+            shipping_address_id=str(self.address.id),
+            idempotency_key="TEST-ADMIN-CANCEL-STOCK",
+        )[0]
+
+        order_service.update_status(
+            placed_order["id"],
+            "cancelled",
+            changed_by_user_id=str(self.seller.id),
+            note="Cancelled by admin",
+        )
+        self.variant.refresh_from_db()
+        self.assertEqual(self.variant.stock_quantity, 50)
+
+        order_service.update_status(
+            placed_order["id"],
+            "cancelled",
+            changed_by_user_id=str(self.seller.id),
+            note="Repeated cancellation",
+        )
+        self.variant.refresh_from_db()
+        self.assertEqual(self.variant.stock_quantity, 50)
+
+    def test_internal_payment_confirms_order_and_is_idempotent(self):
+        cart_service = cart_service_factory()
+        cart_data = cart_service.add_item(str(self.user.id), {
+            "product_id": str(self.product.id),
+            "product_variant_id": str(self.variant.id),
+            "quantity": 2,
+        })
+        order_service = order_service_factory()
+        placed_order = order_service.place_orders(
+            user_id=str(self.user.id),
+            cart_id=cart_data["id"],
+            shipping_address_id=str(self.address.id),
+            idempotency_key="TEST-ORDER-FOR-PAYMENT",
+        )[0]
+
+        payment_service = payment_service_factory()
+        payment = payment_service.complete(
+            order_id=placed_order["id"],
+            user_id=str(self.user.id),
+            idempotency_key="TEST-PAYMENT-IDEMPOTENCY",
+        )
+        repeated_payment = payment_service.complete(
+            order_id=placed_order["id"],
+            user_id=str(self.user.id),
+            idempotency_key="TEST-PAYMENT-IDEMPOTENCY",
+        )
+
+        self.assertEqual(payment["status"], "succeeded")
+        self.assertEqual(payment["amount"], "199.98")
+        self.assertEqual(repeated_payment["id"], payment["id"])
+
+        confirmed_order = order_service.get_detail(placed_order["id"], str(self.user.id))
+        self.assertEqual(confirmed_order["status"], "confirmed")
+        self.assertEqual(confirmed_order["payment"]["id"], payment["id"])
+
+        order_service.cancel(placed_order["id"], str(self.user.id))
+        refunded_payment = payment_service.get_for_order(placed_order["id"], str(self.user.id))
+        self.assertEqual(refunded_payment["status"], "refunded")
+        self.variant.refresh_from_db()
+        self.assertEqual(self.variant.stock_quantity, 50)
+
+    def test_internal_batch_payment_confirms_multiple_store_orders(self):
+        second_store = Store.objects.create(
+            owner=self.seller,
+            name="Home Goods",
+            slug="home-goods",
+            status="active",
+        )
+        second_product = Product.objects.create(
+            store=second_store,
+            category=self.category,
+            name="Desk Lamp",
+            slug="desk-lamp",
+            base_price=Decimal("25.00"),
+            status="active",
+        )
+        second_variant = ProductVariant.objects.create(
+            product=second_product,
+            name="White",
+            price=Decimal("25.00"),
+            stock_quantity=10,
+            status="active",
+        )
+
+        cart_service = cart_service_factory()
+        cart_data = cart_service.add_item(str(self.user.id), {
+            "product_id": str(self.product.id),
+            "product_variant_id": str(self.variant.id),
+            "quantity": 1,
+        })
+        cart_service.add_item(str(self.user.id), {
+            "product_id": str(second_product.id),
+            "product_variant_id": str(second_variant.id),
+            "quantity": 2,
+        })
+
+        order_service = order_service_factory()
+        orders = order_service.place_orders(
+            user_id=str(self.user.id),
+            cart_id=cart_data["id"],
+            shipping_address_id=str(self.address.id),
+            idempotency_key="TEST-MULTI-STORE-ORDER",
+        )
+        order_ids = [order["id"] for order in orders]
+        self.assertEqual(len(order_ids), 2)
+
+        payment_service = payment_service_factory()
+        batch = payment_service.complete_batch(
+            order_ids=order_ids,
+            user_id=str(self.user.id),
+            idempotency_key="TEST-BATCH-PAYMENT",
+        )
+        repeated_batch = payment_service.complete_batch(
+            order_ids=list(reversed(order_ids)),
+            user_id=str(self.user.id),
+            idempotency_key="TEST-BATCH-PAYMENT",
+        )
+
+        self.assertEqual(batch["status"], "succeeded")
+        self.assertEqual(batch["total_amount"], "149.99")
+        self.assertEqual(set(batch["order_ids"]), set(order_ids))
+        self.assertEqual(len(batch["payments"]), 2)
+        self.assertEqual(repeated_batch["id"], batch["id"])
+        for order_id in order_ids:
+            self.assertEqual(
+                order_service.get_detail(order_id, str(self.user.id))["status"],
+                "confirmed",
+            )
+
+        order_service.cancel(order_ids[0], str(self.user.id))
+        batch_model = PaymentBatch.objects.get(id=batch["id"])
+        self.assertEqual(batch_model.status, "partially_refunded")
+
+        order_service.cancel(order_ids[1], str(self.user.id))
+        batch_model.refresh_from_db()
+        self.assertEqual(batch_model.status, "refunded")
+
+    def test_admin_marks_confirmed_order_processing_once(self):
+        cart_service = cart_service_factory()
+        cart_data = cart_service.add_item(str(self.user.id), {
+            "product_id": str(self.product.id),
+            "product_variant_id": str(self.variant.id),
+            "quantity": 1,
+        })
+        order_service = order_service_factory()
+        placed_order = order_service.place_orders(
+            user_id=str(self.user.id),
+            cart_id=cart_data["id"],
+            shipping_address_id=str(self.address.id),
+            idempotency_key="TEST-PROCESSING-ORDER",
+        )[0]
+        payment_service_factory().complete_batch(
+            order_ids=[placed_order["id"]],
+            user_id=str(self.user.id),
+            idempotency_key="TEST-PROCESSING-PAYMENT",
+        )
+
+        processing_order = order_service.mark_processing(
+            order_id=placed_order["id"],
+            changed_by_user_id=str(self.seller.id),
+            note="Store started preparing the products",
+        )
+        repeated_order = order_service.mark_processing(
+            order_id=placed_order["id"],
+            changed_by_user_id=str(self.seller.id),
+            note="Repeated request",
+        )
+
+        self.assertEqual(processing_order["status"], "processing")
+        self.assertEqual(repeated_order["status"], "processing")
+        self.assertEqual(
+            OrderStatusHistory.objects.filter(
+                order_id=placed_order["id"],
+                to_status="processing",
+            ).count(),
+            1,
+        )
+
+    def test_shipment_create_pack_and_handoff_flow(self):
+        cart_service = cart_service_factory()
+        cart_data = cart_service.add_item(str(self.user.id), {
+            "product_id": str(self.product.id),
+            "product_variant_id": str(self.variant.id),
+            "quantity": 1,
+        })
+        order_service = order_service_factory()
+        placed_order = order_service.place_orders(
+            user_id=str(self.user.id),
+            cart_id=cart_data["id"],
+            shipping_address_id=str(self.address.id),
+            idempotency_key="TEST-SHIPMENT-ORDER",
+        )[0]
+        payment_service_factory().complete_batch(
+            order_ids=[placed_order["id"]],
+            user_id=str(self.user.id),
+            idempotency_key="TEST-SHIPMENT-PAYMENT",
+        )
+        order_service.mark_processing(
+            order_id=placed_order["id"],
+            changed_by_user_id=str(self.seller.id),
+            note="Preparing order",
+        )
+
+        shipment_service = shipment_service_factory()
+        shipment = shipment_service.create_for_order(
+            order_id=placed_order["id"],
+            actor_id=str(self.seller.id),
+            note="Shipment created",
+        )
+        repeated_shipment = shipment_service.create_for_order(
+            order_id=placed_order["id"],
+            actor_id=str(self.seller.id),
+            note="Repeated creation",
+        )
+        self.assertEqual(shipment["status"], "pending")
+        self.assertEqual(repeated_shipment["id"], shipment["id"])
+
+        packed = shipment_service.mark_packed(
+            shipment_id=shipment["id"],
+            actor_id=str(self.seller.id),
+            note="Products packed",
+        )
+        repeated_packed = shipment_service.mark_packed(
+            shipment_id=shipment["id"],
+            actor_id=str(self.seller.id),
+            note="Repeated packing",
+        )
+        self.assertEqual(packed["status"], "packed")
+        self.assertEqual(repeated_packed["status"], "packed")
+
+        handed_off = shipment_service.handoff(
+            shipment_id=shipment["id"],
+            actor_id=str(self.seller.id),
+            data={
+                "carrier_name": "DHL Express",
+                "tracking_number": "DHL-123456",
+                "location": "Phnom Penh warehouse",
+                "note": "Package handed to carrier",
+            },
+        )
+        repeated_handoff = shipment_service.handoff(
+            shipment_id=shipment["id"],
+            actor_id=str(self.seller.id),
+            data={
+                "carrier_name": "DHL Express",
+                "tracking_number": "DHL-123456",
+            },
+        )
+        self.assertEqual(handed_off["status"], "in_transit")
+        self.assertEqual(handed_off["carrier_name"], "DHL Express")
+        self.assertEqual(repeated_handoff["status"], "in_transit")
+        self.assertEqual(
+            order_service.get_detail(placed_order["id"], str(self.user.id))["status"],
+            "shipped",
+        )
+        self.assertEqual(Shipment.objects.filter(order_id=placed_order["id"]).count(), 1)
+        self.assertEqual(ShipmentEvent.objects.filter(shipment_id=shipment["id"]).count(), 3)
+        self.assertEqual(
+            OrderStatusHistory.objects.filter(
+                order_id=placed_order["id"],
+                to_status="shipped",
+            ).count(),
+            1,
+        )
+
+        checkpoint = shipment_service.record_checkpoint(
+            shipment_id=shipment["id"],
+            actor_id=str(self.seller.id),
+            data={
+                "location": "Phnom Penh sorting center",
+                "description": "Package scanned at sorting center",
+            },
+        )
+        self.assertEqual(checkpoint["status"], "in_transit")
+
+        out_for_delivery = shipment_service.mark_out_for_delivery(
+            shipment_id=shipment["id"],
+            actor_id=str(self.seller.id),
+            data={
+                "location": "Phnom Penh delivery hub",
+                "note": "Courier is delivering the package",
+            },
+        )
+        repeated_out_for_delivery = shipment_service.mark_out_for_delivery(
+            shipment_id=shipment["id"],
+            actor_id=str(self.seller.id),
+            data={},
+        )
+        self.assertEqual(out_for_delivery["status"], "out_for_delivery")
+        self.assertEqual(repeated_out_for_delivery["status"], "out_for_delivery")
+
+        other_customer = EcomUser.objects.create(
+            email="other-customer@example.com",
+            status="active",
+        )
+        with self.assertRaises(ShipmentException):
+            shipment_service.confirm_delivery(
+                shipment_id=shipment["id"],
+                user_id=str(other_customer.id),
+                note="Not my shipment",
+            )
+
+        delivered = shipment_service.confirm_delivery(
+            shipment_id=shipment["id"],
+            user_id=str(self.user.id),
+            note="Product received in good condition",
+        )
+        repeated_delivery = shipment_service.confirm_delivery(
+            shipment_id=shipment["id"],
+            user_id=str(self.user.id),
+            note="Repeated confirmation",
+        )
+        self.assertEqual(delivered["status"], "delivered")
+        self.assertIsNotNone(delivered["delivered_at"])
+        self.assertEqual(repeated_delivery["status"], "delivered")
+        self.assertEqual(
+            order_service.get_detail(placed_order["id"], str(self.user.id))["status"],
+            "delivered",
+        )
+        self.assertEqual(ShipmentEvent.objects.filter(shipment_id=shipment["id"]).count(), 6)
+        self.assertEqual(
+            OrderStatusHistory.objects.filter(
+                order_id=placed_order["id"],
+                to_status="delivered",
+            ).count(),
+            1,
+        )
 
     def test_notification_and_conversation_facades(self):
         notif_service = notification_service_factory()
