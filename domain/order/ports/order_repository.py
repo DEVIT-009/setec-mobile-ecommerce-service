@@ -19,3 +19,7 @@ class OrderRepositoryInterface(ABC):
     def update_status(self, order_id: str, status: str, changed_by_user_id: str, note: Optional[str] = None) -> Order: pass
     @abstractmethod
     def mark_processing(self, order_id: str, changed_by_user_id: str, note: str) -> Order: pass
+    @abstractmethod
+    def cancel_by_admin(self, order_id: str, changed_by_user_id: str, note: str) -> Order: pass
+    @abstractmethod
+    def mark_failed(self, order_id: str, changed_by_user_id: str, note: str) -> Order: pass

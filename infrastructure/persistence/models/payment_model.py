@@ -9,6 +9,7 @@ class PaymentBatch(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending'),
         ('succeeded', 'Succeeded'),
+        ('failed', 'Failed'),
         ('partially_refunded', 'Partially Refunded'),
         ('refunded', 'Refunded'),
     ]
@@ -21,6 +22,7 @@ class PaymentBatch(models.Model):
     provider = models.CharField(max_length=40, default='internal_mock')
     provider_reference = models.CharField(max_length=100, null=True, blank=True, unique=True)
     idempotency_key = models.CharField(max_length=128, unique=True)
+    failure_reason = models.TextField(null=True, blank=True)
     paid_at = models.DateTimeField(null=True, blank=True)
     refunded_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

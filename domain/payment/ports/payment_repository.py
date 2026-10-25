@@ -11,6 +11,8 @@ class PaymentRepositoryInterface(ABC):
         order_id: str,
         user_id: str,
         idempotency_key: str,
+        outcome: str = 'succeeded',
+        failure_reason: Optional[str] = None,
     ) -> Payment:
         pass
 
@@ -24,5 +26,7 @@ class PaymentRepositoryInterface(ABC):
         order_ids: list[str],
         user_id: str,
         idempotency_key: str,
+        outcome: str = 'succeeded',
+        failure_reason: Optional[str] = None,
     ) -> PaymentBatch:
         pass

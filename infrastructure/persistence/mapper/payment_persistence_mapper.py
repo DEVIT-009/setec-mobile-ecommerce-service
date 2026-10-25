@@ -40,6 +40,7 @@ class PaymentPersistenceMapper:
             provider=entity.provider,
             provider_reference=entity.provider_reference,
             idempotency_key=entity.idempotency_key,
+            failure_reason=entity.failure_reason,
             paid_at=entity.paid_at,
             refunded_at=entity.refunded_at,
             payments=[

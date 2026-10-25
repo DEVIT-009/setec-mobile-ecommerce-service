@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from domain.payment.exception.payment_exception import PaymentException
 from domain.payment.ports.payment_repository import PaymentRepositoryInterface
@@ -10,8 +10,21 @@ class PaymentServiceFacade(PaymentServiceInterface):
     def __init__(self, repo: PaymentRepositoryInterface):
         self.repo = repo
 
-    def complete(self, order_id: str, user_id: str, idempotency_key: str) -> Dict[str, Any]:
-        payment = self.repo.complete_internal_payment(order_id, user_id, idempotency_key)
+    def complete(
+        self,
+        order_id: str,
+        user_id: str,
+        idempotency_key: str,
+        outcome: str = 'succeeded',
+        failure_reason: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        payment = self.repo.complete_internal_payment(
+            order_id,
+            user_id,
+            idempotency_key,
+            outcome,
+            failure_reason,
+        )
         return PaymentControllerMapper.to_response(payment)
 
     def get_for_order(self, order_id: str, user_id: str) -> Dict[str, Any]:
@@ -25,6 +38,14 @@ class PaymentServiceFacade(PaymentServiceInterface):
         order_ids: list[str],
         user_id: str,
         idempotency_key: str,
+        outcome: str = 'succeeded',
+        failure_reason: Optional[str] = None,
     ) -> Dict[str, Any]:
-        batch = self.repo.complete_internal_batch(order_ids, user_id, idempotency_key)
+        batch = self.repo.complete_internal_batch(
+            order_ids,
+            user_id,
+            idempotency_key,
+            outcome,
+            failure_reason,
+        )
         return PaymentControllerMapper.to_batch_response(batch)

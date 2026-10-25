@@ -33,3 +33,11 @@ class OrderServiceInterface(ABC):
     @abstractmethod
     def mark_processing(self, order_id: str, changed_by_user_id: str, note: str) -> Dict[str, Any]:
         pass
+
+    @abstractmethod
+    def cancel_by_admin(self, order_id: str, changed_by_user_id: str, note: str) -> Dict[str, Any]:
+        pass
+
+    @abstractmethod
+    def mark_failed(self, order_id: str, changed_by_user_id: str, note: str) -> Dict[str, Any]:
+        pass

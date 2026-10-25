@@ -4,6 +4,7 @@ from rest_framework.request import Request
 from application.order.factory.order_service_factory import order_service_factory
 from interface.order.serializer.request.order_request import (
     AdminOrderProcessingRequest,
+    AdminOrderTerminationRequest,
     AdminOrderUpdateStatusRequest,
     AdminOrderUpdateStatusSerializer,
     ORDER_STATUS_CHOICES,
@@ -77,6 +78,36 @@ class AdminOrderProcessingView(APIView):
         serializer.is_valid(raise_exception=True)
         service = order_service_factory()
         result = service.mark_processing(
+            order_id=str(order_id),
+            changed_by_user_id=metadata.user_id,
+            note=serializer.validated_data['note'],
+        )
+        return ResponseHandler.api_success(result)
+
+
+class AdminOrderCancelView(APIView):
+    @metadata_handler(required_user_id=True)
+    @require_roles("admin")
+    def patch(self, request: Request, order_id=None, metadata=None):
+        serializer = AdminOrderTerminationRequest(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        service = order_service_factory()
+        result = service.cancel_by_admin(
+            order_id=str(order_id),
+            changed_by_user_id=metadata.user_id,
+            note=serializer.validated_data['note'],
+        )
+        return ResponseHandler.api_success(result)
+
+
+class AdminOrderFailedView(APIView):
+    @metadata_handler(required_user_id=True)
+    @require_roles("admin")
+    def patch(self, request: Request, order_id=None, metadata=None):
+        serializer = AdminOrderTerminationRequest(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        service = order_service_factory()
+        result = service.mark_failed(
             order_id=str(order_id),
             changed_by_user_id=metadata.user_id,
             note=serializer.validated_data['note'],

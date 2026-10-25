@@ -210,6 +210,69 @@ class HexagonalArchitectureTestSuite(TestCase):
         )
         self.variant.refresh_from_db()
         self.assertEqual(self.variant.stock_quantity, 50)
+        self.assertEqual(
+            OrderStatusHistory.objects.filter(
+                order_id=placed_order["id"],
+                to_status="cancelled",
+            ).count(),
+            1,
+        )
+
+    def test_admin_failure_refunds_payment_and_restores_stock_once(self):
+        cart_service = cart_service_factory()
+        cart_data = cart_service.add_item(str(self.user.id), {
+            "product_id": str(self.product.id),
+            "product_variant_id": str(self.variant.id),
+            "quantity": 2,
+        })
+        order_service = order_service_factory()
+        placed_order = order_service.place_orders(
+            user_id=str(self.user.id),
+            cart_id=cart_data["id"],
+            shipping_address_id=str(self.address.id),
+            idempotency_key="TEST-ADMIN-FAILED-ORDER",
+        )[0]
+        payment_service = payment_service_factory()
+        payment_service.complete(
+            order_id=placed_order["id"],
+            user_id=str(self.user.id),
+            idempotency_key="TEST-ADMIN-FAILED-PAYMENT",
+        )
+
+        failed_order = order_service.mark_failed(
+            order_id=placed_order["id"],
+            changed_by_user_id=str(self.seller.id),
+            note="Fulfillment could not be completed",
+        )
+        repeated_order = order_service.mark_failed(
+            order_id=placed_order["id"],
+            changed_by_user_id=str(self.seller.id),
+            note="Repeated request",
+        )
+
+        self.assertEqual(failed_order["status"], "failed")
+        self.assertEqual(repeated_order["status"], "failed")
+        self.variant.refresh_from_db()
+        self.assertEqual(self.variant.stock_quantity, 50)
+        self.assertEqual(
+            payment_service.get_for_order(placed_order["id"], str(self.user.id))["status"],
+            "refunded",
+        )
+        self.assertEqual(
+            OrderStatusHistory.objects.filter(
+                order_id=placed_order["id"],
+                to_status="failed",
+            ).count(),
+            1,
+        )
+        with self.assertRaises(OrderException) as context:
+            order_service.update_status(
+                placed_order["id"],
+                "confirmed",
+                changed_by_user_id=str(self.seller.id),
+                note="Invalid reopen attempt",
+            )
+        self.assertEqual(context.exception.error_code, "ORDER_INVALID_STATUS_TRANSITION")
 
     def test_internal_payment_confirms_order_and_is_idempotent(self):
         cart_service = cart_service_factory()
@@ -327,6 +390,57 @@ class HexagonalArchitectureTestSuite(TestCase):
         order_service.cancel(order_ids[1], str(self.user.id))
         batch_model.refresh_from_db()
         self.assertEqual(batch_model.status, "refunded")
+
+    def test_internal_batch_payment_failure_restores_stock_and_is_idempotent(self):
+        cart_service = cart_service_factory()
+        cart_data = cart_service.add_item(str(self.user.id), {
+            "product_id": str(self.product.id),
+            "product_variant_id": str(self.variant.id),
+            "quantity": 4,
+        })
+        order_service = order_service_factory()
+        placed_order = order_service.place_orders(
+            user_id=str(self.user.id),
+            cart_id=cart_data["id"],
+            shipping_address_id=str(self.address.id),
+            idempotency_key="TEST-FAILED-PAYMENT-ORDER",
+        )[0]
+        self.variant.refresh_from_db()
+        self.assertEqual(self.variant.stock_quantity, 46)
+
+        payment_service = payment_service_factory()
+        batch = payment_service.complete_batch(
+            order_ids=[placed_order["id"]],
+            user_id=str(self.user.id),
+            idempotency_key="TEST-FAILED-BATCH-PAYMENT",
+            outcome="failed",
+            failure_reason="Mock card declined",
+        )
+        repeated_batch = payment_service.complete_batch(
+            order_ids=[placed_order["id"]],
+            user_id=str(self.user.id),
+            idempotency_key="TEST-FAILED-BATCH-PAYMENT",
+            outcome="succeeded",
+        )
+
+        self.assertEqual(batch["status"], "failed")
+        self.assertEqual(batch["failure_reason"], "Mock card declined")
+        self.assertEqual(batch["payments"][0]["status"], "failed")
+        self.assertEqual(repeated_batch["id"], batch["id"])
+        self.assertEqual(repeated_batch["status"], "failed")
+        self.assertEqual(
+            order_service.get_detail(placed_order["id"], str(self.user.id))["status"],
+            "failed",
+        )
+        self.variant.refresh_from_db()
+        self.assertEqual(self.variant.stock_quantity, 50)
+        self.assertEqual(
+            OrderStatusHistory.objects.filter(
+                order_id=placed_order["id"],
+                to_status="failed",
+            ).count(),
+            1,
+        )
 
     def test_admin_marks_confirmed_order_processing_once(self):
         cart_service = cart_service_factory()

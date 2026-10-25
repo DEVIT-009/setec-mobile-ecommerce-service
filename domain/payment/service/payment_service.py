@@ -1,10 +1,17 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 
 class PaymentServiceInterface(ABC):
     @abstractmethod
-    def complete(self, order_id: str, user_id: str, idempotency_key: str) -> Dict[str, Any]:
+    def complete(
+        self,
+        order_id: str,
+        user_id: str,
+        idempotency_key: str,
+        outcome: str = 'succeeded',
+        failure_reason: Optional[str] = None,
+    ) -> Dict[str, Any]:
         pass
 
     @abstractmethod
@@ -17,5 +24,7 @@ class PaymentServiceInterface(ABC):
         order_ids: list[str],
         user_id: str,
         idempotency_key: str,
+        outcome: str = 'succeeded',
+        failure_reason: Optional[str] = None,
     ) -> Dict[str, Any]:
         pass

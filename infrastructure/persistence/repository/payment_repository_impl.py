@@ -11,6 +11,7 @@ from infrastructure.persistence.mapper.payment_persistence_mapper import Payment
 from infrastructure.persistence.models.order_model import Order as OrderModel
 from infrastructure.persistence.models.order_status_history_model import OrderStatusHistory
 from infrastructure.persistence.models.payment_model import Payment as PaymentModel, PaymentBatch as PaymentBatchModel
+from infrastructure.persistence.repository.order_repository_impl import OrderRepositoryInterfaceImpl
 
 
 class PaymentRepositoryInterfaceImpl(PaymentRepositoryInterface):
@@ -34,6 +35,8 @@ class PaymentRepositoryInterfaceImpl(PaymentRepositoryInterface):
         order_id: str,
         user_id: str,
         idempotency_key: str,
+        outcome: str = 'succeeded',
+        failure_reason: Optional[str] = None,
     ) -> Payment:
         existing_by_key = PaymentModel.objects.filter(idempotency_key=idempotency_key).first()
         if existing_by_key:
@@ -57,20 +60,31 @@ class PaymentRepositoryInterfaceImpl(PaymentRepositoryInterface):
             raise PaymentException.order_not_payable(order.status)
 
         now = timezone.now()
+        normalized_failure_reason = (
+            failure_reason or 'Payment failed in the internal payment simulator'
+        ) if outcome == 'failed' else None
         payment_model = PaymentModel.objects.create(
             order=order,
             user_id=user_id,
-            status='succeeded',
+            status=outcome,
             amount=order.total_amount,
             currency=order.currency,
             provider='internal_mock',
             idempotency_key=idempotency_key,
-            paid_at=now,
+            failure_reason=normalized_failure_reason,
+            paid_at=now if outcome == 'succeeded' else None,
         )
         payment_model.provider_reference = f"internal-{payment_model.id}"
         payment_model.save(update_fields=['provider_reference', 'updated_at'])
 
-        self._confirm_order(order, user_id)
+        if outcome == 'succeeded':
+            self._confirm_order(order, user_id)
+        else:
+            OrderRepositoryInterfaceImpl().mark_failed(
+                str(order.id),
+                user_id,
+                normalized_failure_reason,
+            )
 
         return PaymentPersistenceMapper.from_entity(payment_model)
 
@@ -80,6 +94,8 @@ class PaymentRepositoryInterfaceImpl(PaymentRepositoryInterface):
         order_ids: list[str],
         user_id: str,
         idempotency_key: str,
+        outcome: str = 'succeeded',
+        failure_reason: Optional[str] = None,
     ) -> PaymentBatch:
         requested_order_ids = sorted(set(order_ids))
 
@@ -118,15 +134,19 @@ class PaymentRepositoryInterfaceImpl(PaymentRepositoryInterface):
             raise PaymentException.currency_mismatch()
 
         now = timezone.now()
+        normalized_failure_reason = (
+            failure_reason or 'Payment failed in the internal payment simulator'
+        ) if outcome == 'failed' else None
         currency = currencies.pop()
         batch_model = PaymentBatchModel.objects.create(
             user_id=user_id,
-            status='succeeded',
+            status=outcome,
             total_amount=sum(order.total_amount for order in orders),
             currency=currency,
             provider='internal_mock',
             idempotency_key=idempotency_key,
-            paid_at=now,
+            failure_reason=normalized_failure_reason,
+            paid_at=now if outcome == 'succeeded' else None,
         )
         batch_model.provider_reference = f"internal-{batch_model.id}"
         batch_model.save(update_fields=['provider_reference', 'updated_at'])
@@ -139,16 +159,24 @@ class PaymentRepositoryInterfaceImpl(PaymentRepositoryInterface):
                 batch=batch_model,
                 order=order,
                 user_id=user_id,
-                status='succeeded',
+                status=outcome,
                 amount=order.total_amount,
                 currency=order.currency,
                 provider='internal_mock',
                 idempotency_key=f"batch:{payment_key}",
-                paid_at=now,
+                failure_reason=normalized_failure_reason,
+                paid_at=now if outcome == 'succeeded' else None,
             )
             payment_model.provider_reference = f"internal-{payment_model.id}"
             payment_model.save(update_fields=['provider_reference', 'updated_at'])
-            self._confirm_order(order, user_id)
+            if outcome == 'succeeded':
+                self._confirm_order(order, user_id)
+            else:
+                OrderRepositoryInterfaceImpl().mark_failed(
+                    str(order.id),
+                    user_id,
+                    normalized_failure_reason,
+                )
 
         return PaymentPersistenceMapper.batch_from_entity(batch_model)
 

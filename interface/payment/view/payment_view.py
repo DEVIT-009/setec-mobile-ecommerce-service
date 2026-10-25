@@ -26,6 +26,8 @@ class OrderPaymentView(APIView):
             order_id=str(order_id),
             user_id=metadata.user_id,
             idempotency_key=serializer.validated_data['idempotency_key'],
+            outcome=serializer.validated_data['simulate_outcome'],
+            failure_reason=serializer.validated_data.get('failure_reason'),
         )
         return ResponseHandler.api_created(payment)
 
@@ -40,5 +42,7 @@ class OrderBatchPaymentView(APIView):
             order_ids=[str(order_id) for order_id in serializer.validated_data['order_ids']],
             user_id=metadata.user_id,
             idempotency_key=serializer.validated_data['idempotency_key'],
+            outcome=serializer.validated_data['simulate_outcome'],
+            failure_reason=serializer.validated_data.get('failure_reason'),
         )
         return ResponseHandler.api_created(batch)

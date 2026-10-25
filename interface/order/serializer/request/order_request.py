@@ -21,6 +21,10 @@ class AdminOrderProcessingRequest(serializers.Serializer):
     note = serializers.CharField(max_length=1000)
 
 
+class AdminOrderTerminationRequest(serializers.Serializer):
+    note = serializers.CharField(max_length=1000)
+
+
 # Backward-compatibility aliases
 PlaceOrderSerializer = PlaceOrderRequest
 AdminOrderUpdateStatusSerializer = AdminOrderUpdateStatusRequest

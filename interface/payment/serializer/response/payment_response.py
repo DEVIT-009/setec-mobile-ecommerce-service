@@ -27,6 +27,7 @@ class PaymentBatchResponse:
     currency: str
     provider: str
     provider_reference: Optional[str]
+    failure_reason: Optional[str]
     order_ids: List[str]
     payments: List[Dict[str, Any]]
     paid_at: Optional[str]

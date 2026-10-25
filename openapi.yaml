@@ -933,7 +933,7 @@ paths:
   /orders/payment/:
     post:
       summary: Complete one internal mock payment for multiple pending orders
-      description: Creates one payment batch, creates one child payment per order, and confirms all orders atomically. No real funds are moved.
+      description: Creates one payment batch and one child payment per order, then simulates either success or failure atomically. No real funds are moved.
       tags: [Orders, Payments]
       security: [{ BearerAuth: [] }]
       requestBody:
@@ -951,6 +951,11 @@ paths:
                   maxItems: 100
                   uniqueItems: true
                   items: { type: string, example: "ord-20261024-0001" }
+                simulate_outcome:
+                  type: string
+                  enum: [succeeded, failed]
+                  default: succeeded
+                failure_reason: { type: string, maxLength: 1000 }
       responses:
         201:
           content:
@@ -981,8 +986,8 @@ paths:
         404:
           description: Order or payment not found
     post:
-      summary: Complete internal mock payment and confirm a pending order
-      description: Temporary internal payment logic; no real funds are moved.
+      summary: Simulate payment success or failure for a pending order
+      description: Temporary internal payment logic; success confirms the order, while failure marks it failed and restores reserved stock. No real funds are moved.
       tags: [Orders, Payments]
       security: [{ BearerAuth: [] }]
       parameters:
@@ -999,6 +1004,11 @@ paths:
               required: [idempotency_key]
               properties:
                 idempotency_key: { type: string, maxLength: 128 }
+                simulate_outcome:
+                  type: string
+                  enum: [succeeded, failed]
+                  default: succeeded
+                failure_reason: { type: string, maxLength: 1000 }
       responses:
         201:
           content:
@@ -1086,6 +1096,62 @@ paths:
                 $ref: '#/components/schemas/SuccessEnvelope'
         409:
           description: Order is not confirmed and cannot transition to processing
+
+  /admin/orders/{order_id}/cancel:
+    patch:
+      summary: Cancel an order before shipping
+      tags: [Admin, Orders]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: order_id
+          required: true
+          schema: { type: string, example: "ord-20261024-0001" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [note]
+              properties:
+                note: { type: string, maxLength: 1000 }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        409:
+          description: Order cannot transition to cancelled from its current status
+
+  /admin/orders/{order_id}/failed:
+    patch:
+      summary: Mark an order failed before shipping
+      tags: [Admin, Orders]
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - in: path
+          name: order_id
+          required: true
+          schema: { type: string, example: "ord-20261024-0001" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [note]
+              properties:
+                note: { type: string, maxLength: 1000 }
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessEnvelope'
+        409:
+          description: Order cannot transition to failed from its current status
 
   /admin/orders/{order_id}/shipments:
     post:

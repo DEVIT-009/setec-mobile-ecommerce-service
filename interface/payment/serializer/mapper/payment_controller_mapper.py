@@ -34,6 +34,7 @@ class PaymentControllerMapper:
             currency=batch.currency,
             provider=batch.provider,
             provider_reference=batch.provider_reference,
+            failure_reason=batch.failure_reason,
             order_ids=[payment["order_id"] for payment in payments],
             payments=payments,
             paid_at=batch.paid_at.isoformat() if batch.paid_at else None,

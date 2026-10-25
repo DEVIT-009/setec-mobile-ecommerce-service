@@ -53,3 +53,11 @@ class OrderServiceFacade(OrderServiceInterface):
     def mark_processing(self, order_id: str, changed_by_user_id: str, note: str) -> Dict[str, Any]:
         order = self.repo.mark_processing(order_id, changed_by_user_id, note)
         return OrderControllerMapper.to_detail_response(order)
+
+    def cancel_by_admin(self, order_id: str, changed_by_user_id: str, note: str) -> Dict[str, Any]:
+        order = self.repo.cancel_by_admin(order_id, changed_by_user_id, note)
+        return OrderControllerMapper.to_detail_response(order)
+
+    def mark_failed(self, order_id: str, changed_by_user_id: str, note: str) -> Dict[str, Any]:
+        order = self.repo.mark_failed(order_id, changed_by_user_id, note)
+        return OrderControllerMapper.to_detail_response(order)

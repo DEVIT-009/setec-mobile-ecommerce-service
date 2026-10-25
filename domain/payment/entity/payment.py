@@ -33,6 +33,7 @@ class PaymentBatch:
     provider: str = "internal_mock"
     provider_reference: Optional[str] = None
     idempotency_key: str = ""
+    failure_reason: Optional[str] = None
     paid_at: Optional[datetime] = None
     refunded_at: Optional[datetime] = None
     payments: List[Payment] = field(default_factory=list)

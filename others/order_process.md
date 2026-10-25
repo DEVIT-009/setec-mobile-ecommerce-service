@@ -210,8 +210,8 @@ Current internal behavior:
 7. Use each order's server-side total and currency; the customer cannot submit an amount.
 8. Create one payment batch for the combined total.
 9. Create one child payment record per order for cancellation and refund tracking.
-10. Immediately mark the batch and child payments succeeded.
-11. Store provider references and paid_at timestamps.
+10. Use `simulate_outcome` to mark the batch and child payments `succeeded` or `failed` (`succeeded` is the default).
+11. Store provider references and either `paid_at` or `failure_reason`.
 
 The older single-order endpoint remains available for compatibility:
 
@@ -461,20 +461,26 @@ Cancelling a confirmed order changes its child payment to refunded and records r
 
 ## Admin cancellation and failure flow
 
-**Flag: ⚠️ Partial**
+**Flag: ✅ Implemented**
 
-When an admin changes a non-cancelled/non-failed order to cancelled or failed, the backend restores variant stock once.
+**Real-world purpose:** Cancellation records a deliberate stop, while failure records that payment or fulfillment could not be completed.
 
-Current concerns:
+~~~http
+PATCH /api/v1/admin/orders/{order_id}/cancel
+PATCH /api/v1/admin/orders/{order_id}/failed
+~~~
 
-- Admin status transitions are not validated.
-- An admin can move terminal orders backward to active statuses.
-- Reopening a cancelled or failed order can make later stock restoration inaccurate.
-- Repeating the same status still creates another history record.
+~~~json
+{
+  "note": "Reason for cancelling or failing the order"
+}
+~~~
+
+Both routes accept only pending, confirmed, or processing orders. They restore reserved variant stock, logically refund a succeeded internal payment, and write status history. Repeating the same route returns the current order without restoring stock or writing history twice. Terminal and shipped orders return `409 ORDER_INVALID_STATUS_TRANSITION`.
 
 ## Payment failure flow
 
-**Flag: ❌ Missing automatically / ⚠️ Manual order status exists**
+**Flag: ✅ Implemented in the internal payment simulator**
 
 Intended flow:
 
@@ -485,13 +491,25 @@ Order: pending
 → Order: failed
 ~~~
 
-The internal payment service always succeeds, so an automatic payment failure event does not exist. An admin can manually set failed, and that manual change restores variant stock.
+To test a failed multi-order payment:
 
-There is a status-definition mismatch:
+~~~http
+POST /api/v1/customer/orders/payment/
+~~~
 
-- The Order model defines paid but not failed.
-- The admin request serializer accepts failed but not paid.
-- These definitions need one shared status list.
+~~~json
+{
+  "idempotency_key": "one-key-for-this-failed-attempt",
+  "order_ids": [
+    "ord-20261024-0001",
+    "ord-20261024-0002"
+  ],
+  "simulate_outcome": "failed",
+  "failure_reason": "Mock card declined"
+}
+~~~
+
+The operation atomically marks the payment batch and every child payment failed, stores the reason, restores each order's reserved variant stock, changes every order to failed, and writes status history. Retrying the same key and order set returns the original failed batch without repeating stock restoration. This simulates failure only; there is no real provider decline or webhook yet.
 
 ## Inventory flow
 

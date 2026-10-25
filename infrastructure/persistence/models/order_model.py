@@ -9,12 +9,12 @@ class Order(models.Model):
     STATUS_CHOICES = [
         ('pending', 'Pending'),
         ('confirmed', 'Confirmed'),
-        ('paid', 'Paid'),
         ('processing', 'Processing'),
         ('shipped', 'Shipped'),
         ('delivered', 'Delivered'),
         ('cancelled', 'Cancelled'),
         ('refunded', 'Refunded'),
+        ('failed', 'Failed'),
     ]
 
     # The formatted ID IS the order identifier (ord-YYYYMMDD-NNNN).

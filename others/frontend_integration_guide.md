@@ -373,6 +373,8 @@ Admin routes require a valid **Bearer JWT** AND the `"admin"` role claim (`@requ
 | `GET` | `/api/v1/admin/orders/` | List all platform orders with filters | 👑 `admin` |
 | `GET` | `/api/v1/admin/orders/{order_id}/` | Get full order details | 👑 `admin` |
 | `PATCH` | `/api/v1/admin/orders/{order_id}/processing` | Start preparing a confirmed order | 👑 `admin` |
+| `PATCH` | `/api/v1/admin/orders/{order_id}/cancel` | Cancel an order and release its reserved stock | 👑 `admin` |
+| `PATCH` | `/api/v1/admin/orders/{order_id}/failed` | Mark an order failed and release its reserved stock | 👑 `admin` |
 | `PATCH` | `/api/v1/admin/orders/{order_id}/status/` | Update order fulfillment status | 👑 `admin` |
 | `POST` | `/api/v1/admin/orders/{order_id}/shipments` | Create pending shipment for processing order | 👑 `admin` |
 | `GET` | `/api/v1/admin/shipments/` | List all shipments across stores | 👑 `admin` |
@@ -2889,7 +2891,8 @@ Content-Type: application/json
   "order_ids": [
     "ord-20261024-0001",
     "ord-20261024-0002"
-  ]
+  ],
+  "simulate_outcome": "succeeded"
 }
 ```
 
@@ -2933,7 +2936,7 @@ Content-Type: application/json
 }
 ```
 
-All order IDs must be unique, owned by the customer, pending, unpaid, and use the same currency. The operation is atomic: if any order fails validation, no payments are created and no orders are confirmed.
+All order IDs must be unique, owned by the customer, pending, unpaid, and use the same currency. The operation is atomic: if any order fails validation, no payments are created and no orders are confirmed. `simulate_outcome` may be `succeeded` (default) or `failed`. For a failure test, send `"simulate_outcome": "failed"` and an optional `failure_reason`; the backend marks the batch, child payments, and orders failed and restores reserved variant stock. Retrying the same idempotency key returns the original result.
 
 ---
 
@@ -2945,7 +2948,8 @@ All order IDs must be unique, owned by the customer, pending, unpaid, and use th
 **Request Body:**
 ```json
 {
-  "idempotency_key": "uuid-payment-attempt-12345"
+  "idempotency_key": "uuid-payment-attempt-12345",
+  "simulate_outcome": "succeeded"
 }
 ```
 
@@ -2971,6 +2975,8 @@ All order IDs must be unique, owned by the customer, pending, unpaid, and use th
 ```
 
 The backend uses the order's stored total, creates one idempotent payment, changes the order from `pending` to `confirmed`, and adds a status-history entry.
+
+Set `simulate_outcome` to `failed` with an optional `failure_reason` to record a failed payment, restore reserved variant stock, and change the order to `failed`.
 
 ---
 
@@ -4754,7 +4760,7 @@ Authorization: Bearer <admin_token>
 | Parameter | Type | Required | Description |
 |---|---|---|---|
 | `user_id` | UUID | No | Filter orders by customer UUID |
-| `status` | string | No | Filter by order status: `pending`, `paid`, `processing`, `shipped`, `delivered`, `cancelled`, `refunded`, `failed` |
+| `status` | string | No | Filter by order status: `pending`, `confirmed`, `processing`, `shipped`, `delivered`, `cancelled`, `refunded`, `failed` |
 | `store_id` | UUID | No | Filter by merchant store |
 | `page` | integer | No | Page number (default: `1`) |
 | `page_size` | integer | No | Items per page (default: `20`) |
@@ -4784,6 +4790,36 @@ The route accepts only a `confirmed` order. Calling it again when the order is a
 
 ---
 
+#### PATCH `/api/v1/admin/orders/{order_id}/cancel`
+**Purpose:** Deliberately stop a pending, confirmed, or processing order.
+**Authentication:** 🔐 Required
+**Allowed Roles:** `admin`
+
+```json
+{
+  "note": "Customer requested cancellation through support"
+}
+```
+
+The backend changes the order to `cancelled`, restores reserved variant stock, logically refunds a succeeded internal payment, and records history. Repeating the request is safe and does not restore stock twice.
+
+---
+
+#### PATCH `/api/v1/admin/orders/{order_id}/failed`
+**Purpose:** Record that a pending, confirmed, or processing order could not be completed.
+**Authentication:** 🔐 Required
+**Allowed Roles:** `admin`
+
+```json
+{
+  "note": "Store could not fulfill the order"
+}
+```
+
+The backend changes the order to `failed`, restores reserved variant stock, logically refunds a succeeded internal payment, and records history. Repeating the request is safe. Shipped, delivered, cancelled, refunded, and other terminal transitions return `409 ORDER_INVALID_STATUS_TRANSITION`.
+
+---
+
 #### PATCH `/api/v1/admin/orders/{order_id}/status/`
 **Purpose:** Transition order fulfillment status and log audit history note.  
 **Authentication:** 🔐 Required  
@@ -4792,7 +4828,7 @@ The route accepts only a `confirmed` order. Calling it again when the order is a
 **Request Body:**
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `status` | string | Yes | Allowed: `pending`, `paid`, `processing`, `shipped`, `delivered`, `cancelled`, `refunded`, `failed` |
+| `status` | string | Yes | Allowed: `pending`, `confirmed`, `processing`, `shipped`, `delivered`, `cancelled`, `refunded`, `failed` |
 | `note` | string | No | Administrative comment or reason for status update |
 
 ```json

@@ -21,7 +21,16 @@ from infrastructure.persistence.models.payment_model import Payment as PaymentMo
 class OrderRepositoryInterfaceImpl(OrderRepositoryInterface):
 
     CANCELLABLE_STATUSES = {'pending', 'confirmed'}
-    STOCK_RELEASE_STATUSES = {'cancelled', 'failed'}
+    ADMIN_STATUS_TRANSITIONS = {
+        'pending': {'confirmed', 'cancelled', 'failed'},
+        'confirmed': {'processing', 'cancelled', 'failed'},
+        'processing': {'shipped', 'cancelled', 'failed'},
+        'shipped': {'delivered'},
+        'delivered': {'refunded'},
+        'cancelled': set(),
+        'refunded': set(),
+        'failed': set(),
+    }
 
     @staticmethod
     def _reserve_variant_stock(items) -> None:
@@ -274,18 +283,86 @@ class OrderRepositoryInterfaceImpl(OrderRepositoryInterface):
         return OrderPersistenceMapper.from_entity(order)
 
     @transaction.atomic
+    def cancel_by_admin(self, order_id: str, changed_by_user_id: str, note: str) -> Order:
+        return self._terminate_by_admin(
+            order_id=order_id,
+            target_status='cancelled',
+            changed_by_user_id=changed_by_user_id,
+            note=note,
+        )
+
+    @transaction.atomic
+    def mark_failed(self, order_id: str, changed_by_user_id: str, note: str) -> Order:
+        return self._terminate_by_admin(
+            order_id=order_id,
+            target_status='failed',
+            changed_by_user_id=changed_by_user_id,
+            note=note,
+        )
+
+    def _terminate_by_admin(
+        self,
+        order_id: str,
+        target_status: str,
+        changed_by_user_id: str,
+        note: str,
+    ) -> Order:
+        order = OrderModel.objects.select_for_update().filter(
+            id=order_id,
+            deleted_at__isnull=True,
+        ).first()
+        if not order:
+            raise OrderException.not_found()
+        if order.status == target_status:
+            return OrderPersistenceMapper.from_entity(order)
+        if order.status not in {'pending', 'confirmed', 'processing'}:
+            raise OrderException.invalid_status_transition(order.status, target_status)
+
+        old_status = order.status
+        self._release_variant_stock(order)
+        self._refund_internal_payment(order)
+        order.status = target_status
+        update_fields = ['status', 'updated_at']
+        if target_status == 'cancelled':
+            order.cancelled_at = timezone.now()
+            update_fields.append('cancelled_at')
+        order.save(update_fields=update_fields)
+
+        OrderStatusHistoryModel.objects.create(
+            order=order,
+            from_status=old_status,
+            to_status=target_status,
+            changed_by_id=changed_by_user_id,
+            note=note,
+        )
+        return OrderPersistenceMapper.from_entity(order)
+
+    @transaction.atomic
     def update_status(self, order_id: str, status: str, changed_by_user_id: str, note: Optional[str] = None) -> Order:
+        if status == 'cancelled':
+            return self.cancel_by_admin(
+                order_id,
+                changed_by_user_id,
+                note or 'Cancelled by admin',
+            )
+        if status == 'failed':
+            return self.mark_failed(
+                order_id,
+                changed_by_user_id,
+                note or 'Marked failed by admin',
+            )
+
         order = OrderModel.objects.select_for_update().filter(id=order_id, deleted_at__isnull=True).first()
         if not order:
             raise OrderException.not_found()
 
         old_status = order.status
-        if status in self.STOCK_RELEASE_STATUSES and old_status not in self.STOCK_RELEASE_STATUSES:
-            self._release_variant_stock(order)
-        if status == 'cancelled' and old_status != 'cancelled':
-            self._refund_internal_payment(order)
+        if old_status == status:
+            return OrderPersistenceMapper.from_entity(order)
+        if status not in self.ADMIN_STATUS_TRANSITIONS.get(old_status, set()):
+            raise OrderException.invalid_status_transition(old_status, status)
         order.status = status
-        order.save()
+        order.save(update_fields=['status', 'updated_at'])
 
         OrderStatusHistoryModel.objects.create(
             order=order,
